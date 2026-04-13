@@ -2,9 +2,20 @@ import streamlit as st
 import streamlit.components.v1 as components 
 import pandas as pd
 import os
+import base64
 from jinja2 import Environment, FileSystemLoader
 import motor_web
 from geopy.geocoders import Nominatim
+
+# Función necesaria para procesar la imagen (asegúrate de que esté aquí arriba)
+@st.cache_data
+def get_base64_of_bin_file(bin_file):
+    try:
+        with open(bin_file, 'rb') as f:
+            data = f.read()
+        return f"data:image/png;base64,{base64.b64encode(data).decode()}"
+    except:
+        return ""
 
 # ==========================================
 # CONFIGURACIÓN DE PÁGINA Y ESTÉTICA
@@ -25,54 +36,10 @@ try:
 except Exception:
     pass
 
-except:
-    pass
+# --- AQUÍ EMPIEZA TU CUSTOM_CSS ---
 CUSTOM_CSS = """
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
-
-    :root {
-        --color-accent: #B48E92;       
-        --color-accent-dark: #967074; 
-        --color-bg-tint: #Fdfbf7;      
-        --color-text: #4A4A4A;         
-    }
-
-    html, body, [class*="css"] {
-        font-family: 'Montserrat', sans-serif !important;
-        color: var(--color-text);
-    }
-    
-    h1, h2, h3, .st-emotion-cache-10trblm {
-        font-family: 'Playfair Display', serif !important;
-        color: var(--color-text) !important;
-    }
-
-    /* ELIMINAR EL ROJO DE STREAMLIT */
-    div[data-baseweb="select"] > div, input, textarea { border-color: #e2dcd0 !important; }
-    div[data-baseweb="select"] > div:hover, input:hover, textarea:hover { border-color: var(--color-accent) !important; }
-    div[data-baseweb="select"] > div:focus-within, input:focus, textarea:focus { border-color: var(--color-accent) !important; box-shadow: 0 0 0 1px var(--color-accent) !important; }
-    ul[role="listbox"] li[aria-selected="true"] { background-color: #f7f3f4 !important; color: var(--color-accent-dark) !important; }
-    div[data-baseweb="radio"] > div:first-child { background-color: transparent !important; border-color: var(--color-accent) !important; }
-    div[data-baseweb="radio"] > div:first-child > div { background-color: var(--color-accent) !important; }
-    div[role="radiogroup"] label > div:last-child { background-color: transparent !important; }
-
-    /* BOTONES */
-    .stButton>button { border-radius: 6px !important; font-family: 'Montserrat', sans-serif !important; font-weight: 600 !important; letter-spacing: 0.5px; transition: all 0.3s ease !important; border: 1px solid var(--color-accent) !important; color: var(--color-accent) !important; }
-    .stButton>button:hover, .stButton>button:focus:not(:active) { background-color: #f7f3f4 !important; color: var(--color-accent-dark) !important; border-color: var(--color-accent-dark) !important; outline: none !important; box-shadow: none !important; }
-    .stButton>button:active { background-color: var(--color-accent-dark) !important; color: white !important; border-color: var(--color-accent-dark) !important; }
-    
-    .stButton>button[kind="primary"] { background-color: var(--color-accent) !important; color: white !important; border: none !important; box-shadow: 0 4px 6px rgba(180, 142, 146, 0.2) !important; }
-    .stButton>button[kind="primary"]:hover, .stButton>button[kind="primary"]:focus:not(:active) { background-color: var(--color-accent-dark) !important; color: white !important; box-shadow: 0 6px 12px rgba(180, 142, 146, 0.4) !important; transform: translateY(-1px); outline: none !important; }
-    .stButton>button[kind="primary"]:active { background-color: var(--color-text) !important; color: white !important; }
-
-    [data-testid="stSidebar"] { background-color: var(--color-bg-tint) !important; border-right: 1px solid #f0ebe1; }
-    .streamlit-expanderHeader { background-color: var(--color-bg-tint); border-radius: 6px; color: var(--color-text) !important; font-family: 'Playfair Display', serif !important; font-size: 1.1rem !important; border: 1px solid #f0ebe1; }
-    .streamlit-expanderHeader:hover, .streamlit-expanderHeader:focus { color: var(--color-accent-dark) !important; outline: none !important; }
-    hr { border-color: #e8e3d8 !important; }
-</style>
-"""
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+...
 
 # MARCA Y ENCABEZADO LATERAL
 SIDEBAR_HEADER_HTML = """
