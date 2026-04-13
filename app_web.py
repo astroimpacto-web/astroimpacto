@@ -258,7 +258,7 @@ elif modo_app == "⚙️ Taller de Informes":
             
             st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
 
-            if st.sidebar.button("🚀 Procesar Informe (Motor IA)", type="primary", use_container_width=True):
+            if st.sidebar.button("🚀 Procesar Informe", type="primary", use_container_width=True):
                 st.session_state.idx_prog_actual = idx_prog 
                 lat_final, lon_final = None, None
                 if es_revo:
@@ -267,7 +267,7 @@ elif modo_app == "⚙️ Taller de Informes":
                         lon_final = float(lon_rs) if lon_rs and lon_rs.strip() else None
                     except: pass
 
-                with st.spinner(f"Conectando a la IA y calculando posiciones..."):
+                with st.spinner(f"interpretando y calculando posiciones..."):
                     if es_transito: st.session_state.tipo_reporte_actual = "TRANSITOS"; datos, plantilla = motor_web.procesar_transitos_con_ia(cliente_obj, tipo_obj, id_seleccionado)
                     elif es_revo: st.session_state.tipo_reporte_actual = "REVOLUCION"; datos, plantilla = motor_web.procesar_rs_con_ia(cliente_obj, tipo_obj, id_seleccionado, lat_rs=lat_final, lon_rs=lon_final, lugar_rs=lugar_rs)
                     else: st.session_state.tipo_reporte_actual = "NATAL"; datos, plantilla = motor_web.procesar_natal_con_ia(cliente_obj, tipo_obj, id_seleccionado)
