@@ -3,12 +3,12 @@
   "name": "Astroimpacto Plataforma",
   "icons": [
     {
-      "src": "icono_v2.png",
+      "src": "apple-icon.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "icono_v2.jpg",
+      "src": "apple-icon.jpg",
       "sizes": "512x512",
       "type": "image/jpeg"
     }
