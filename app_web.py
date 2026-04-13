@@ -9,27 +9,17 @@ from geopy.geocoders import Nominatim
 # ==========================================
 # CONFIGURACIÓN DE PÁGINA Y ESTÉTICA
 # ==========================================
-st.set_page_config(page_title="Astroimpacto", page_icon="icono_v2.png", layout="wide", initial_sidebar_state="expanded")
-# 👑 ADIÓS CORONA: Truco para forzar el ícono en celulares
-# Forzar el manifest para el ícono en celulares
-st.markdown('<link rel="manifest" href="./manifest.json">', unsafe_allow_html=True)
-try:
-    icono_base64 = get_base64_of_bin_file('icono_v2.png')
-    if icono_base64:
-        components.html(
-            f"""
-            <script>
-                var doc = window.parent.document;
-                var links = doc.querySelectorAll('link[rel="shortcut icon"], link[rel="icon"], link[rel="apple-touch-icon"]');
-                links.forEach(e => e.remove());
-                var nuevoIcono = doc.createElement('link');
-                nuevoIcono.rel = 'apple-touch-icon';
-                nuevoIcono.href = '{icono_base64}';
-                doc.head.appendChild(nuevoIcono);
-            </script>
-            """,
-            height=0, width=0
-        )
+st.set_page_config(page_title="Astroimpacto", page_icon="apple-icon.png", layout="wide")
+
+# Forzar ícono en iPhone de manera agresiva
+st.markdown(f"""
+    <link rel="apple-touch-icon" href="apple-icon.png">
+    <link rel="apple-touch-startup-image" href="apple-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Astroimpacto">
+    <link rel="manifest" href="./manifest.json?v=3">
+""", unsafe_allow_html=True)
+
 except:
     pass
 CUSTOM_CSS = """
