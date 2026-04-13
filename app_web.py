@@ -10,7 +10,26 @@ from geopy.geocoders import Nominatim
 # CONFIGURACIÓN DE PÁGINA Y ESTÉTICA
 # ==========================================
 st.set_page_config(page_title="Astroimpacto", page_icon="logo_astro.jpg", layout="wide", initial_sidebar_state="expanded")
-
+# 👑 ADIÓS CORONA: Truco para forzar el ícono en celulares
+try:
+    icono_base64 = get_base64_of_bin_file('logo_astro.jpg')
+    if icono_base64:
+        components.html(
+            f"""
+            <script>
+                var doc = window.parent.document;
+                var links = doc.querySelectorAll('link[rel="shortcut icon"], link[rel="icon"], link[rel="apple-touch-icon"]');
+                links.forEach(e => e.remove());
+                var nuevoIcono = doc.createElement('link');
+                nuevoIcono.rel = 'apple-touch-icon';
+                nuevoIcono.href = '{icono_base64}';
+                doc.head.appendChild(nuevoIcono);
+            </script>
+            """,
+            height=0, width=0
+        )
+except:
+    pass
 CUSTOM_CSS = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap');
