@@ -9,7 +9,7 @@ from geopy.geocoders import Nominatim
 # ==========================================
 # CONFIGURACIÓN DE PÁGINA Y ESTÉTICA
 # ==========================================
-st.set_page_config(page_title="Astroimpacto", page_icon="✨", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Astroimpacto", page_icon="logo_astro.jpg", layout="wide", initial_sidebar_state="expanded")
 
 CUSTOM_CSS = """
 <style>
