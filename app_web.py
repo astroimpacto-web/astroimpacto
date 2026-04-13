@@ -11,14 +11,19 @@ from geopy.geocoders import Nominatim
 # ==========================================
 st.set_page_config(page_title="Astroimpacto", page_icon="apple-icon.png", layout="wide")
 
-# Forzar ícono en iPhone de manera agresiva
+# Forzar ícono en iPhone y limpiar errores
 st.markdown(f"""
     <link rel="apple-touch-icon" href="apple-icon.png">
-    <link rel="apple-touch-startup-image" href="apple-icon.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="Astroimpacto">
-    <link rel="manifest" href="./manifest.json?v=3">
+    <link rel="manifest" href="./manifest.json">
 """, unsafe_allow_html=True)
+
+# Bloque de seguridad corregido
+try:
+    icono_base64 = get_base64_of_bin_file('apple-icon.png')
+    if icono_base64:
+        st.markdown(f'<link rel="icon" href="{icono_base64}">', unsafe_allow_html=True)
+except Exception:
+    pass
 
 except:
     pass
