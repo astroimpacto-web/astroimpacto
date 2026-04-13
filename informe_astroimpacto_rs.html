@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revolución Solar - {{ nombre_cliente }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { colors: { 
+            'theme-accent': 'var(--color-accent)', 'theme-dark': 'var(--color-accent-dark)', 
+            'gris-carbon': '#4A4A4A', 'gris-suave': 'var(--color-bg-tint)' },
+            fontFamily: { serif: ['"Playfair Display"', 'serif'], sans: ['"Montserrat"', 'sans-serif'] } } } }
+    </script>
+    <style>
+        :root { --color-accent: #B48E92; --color-accent-dark: #967074; --color-bg-tint: #F9F7F2; }
+        {% if tema_color == 'azul' %}
+        :root { --color-accent: #6B818C; --color-accent-dark: #4A5A63; --color-bg-tint: #F4F6F8; }
+        {% endif %}
+        
+        body { background-color: #525659; margin: 0; padding: 20px; font-family: 'Montserrat', sans-serif; }
+        
+        .a4-page { 
+            width: 210mm; min-height: 297mm; background: white; margin: 0 auto 30px auto; 
+            padding: 20mm; position: relative; overflow: hidden; display: flex; flex-direction: column; 
+            box-shadow: 0 0 15px rgba(0,0,0,0.2); background-color: white;
+        }
+        
+        @page { size: A4; margin: 0; }
+        @media print { 
+            body { background: none; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+            .no-print { display: none; }
+            .a4-page { margin: 0 !important; padding: 20mm !important; box-shadow: none !important; page-break-after: always; width: 210mm; min-height: auto !important; height: auto !important; display: block !important; } 
+            .page-break-before { page-break-before: always; }
+            .texto-ia, h2, h3, ul, .avoid-break { page-break-inside: avoid; }
+        }
+
+        .texto-ia { font-size: 0.95rem; color: #4A4A4A; overflow-wrap: break-word; line-height: 1.8; text-align: justify; }
+        .texto-ia p { margin-bottom: 1.2rem; }
+        
+        .bullet-list { list-style: none; padding-left: 1rem; margin-bottom: 1.5rem; }
+        .bullet-list li { position: relative; padding-left: 1.5rem; margin-bottom: 0.8rem; font-size: 0.95rem; color: #4A4A4A; text-align: justify; line-height: 1.6; }
+        .bullet-list li::before { content: "•"; color: var(--color-accent); font-weight: bold; position: absolute; left: 0; font-size: 1.2rem; line-height: 1; }
+        
+        .numbered-list { counter-reset: custom-counter; list-style: none; padding-left: 0; margin-bottom: 1.5rem; }
+        .numbered-list li { position: relative; padding-left: 2rem; margin-bottom: 1rem; font-size: 0.95rem; color: #4A4A4A; text-align: justify; line-height: 1.6; }
+        .numbered-list li::before { counter-increment: custom-counter; content: counter(custom-counter) "."; color: var(--color-accent); font-weight: bold; position: absolute; left: 0; font-size: 1rem; }
+
+        .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.04; width: 80%; pointer-events: none; z-index: 0; }
+        .content-relative { position: relative; z-index: 1; }
+    </style>
+</head>
+<body>
+
+    <!-- PORTADA -->
+    <div class="a4-page text-center justify-center items-center border-t-8 border-theme-accent" style="display: flex !important; background-color: var(--color-bg-tint);">
+        <div class="p-16 w-full h-full flex flex-col justify-center relative">
+            <h1 class="font-serif text-5xl text-gris-carbon tracking-[0.2em] mb-8">REVOLUCIÓN SOLAR</h1>
+            <h2 class="font-serif text-8xl text-theme-accent mb-16">{{ anio_rs }}</h2>
+            
+            <div class="w-56 h-56 mx-auto mb-16 text-theme-accent">
+                <!-- Nuevo Sol Radiante -->
+                <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="100" cy="100" r="35" stroke="currentColor" stroke-width="4" fill="none"/>
+                    <circle cx="100" cy="100" r="6" fill="currentColor"/>
+                    <!-- Rayos Principales -->
+                    <path d="M100 15 L100 50 M100 150 L100 185" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                    <path d="M15 100 L50 100 M150 100 L185 100" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                    <!-- Rayos Diagonales -->
+                    <path d="M40 40 L65 65 M135 135 L160 160" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                    <path d="M40 160 L65 135 M135 65 L160 40" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+                    <!-- Rayos Secundarios -->
+                    <path d="M70 25 L80 55 M130 175 L120 145" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M130 25 L120 55 M70 175 L80 145" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M25 70 L55 80 M175 130 L145 120" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path d="M25 130 L55 120 M175 70 L145 80" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </div>
+            
+            <p class="font-sans text-gris-carbon text-sm uppercase tracking-widest mb-2 font-semibold">Preparado para:</p>
+            <h3 class="font-serif text-3xl text-gris-carbon tracking-widest italic mb-8">{{ nombre_cliente }}</h3>
+            
+            <div class="mt-auto absolute bottom-12 w-full left-0 flex flex-col items-center">
+                <div class="w-24 h-[1px] bg-theme-accent mb-4"></div>
+                <p class="font-sans text-theme-dark font-bold tracking-[0.4em] uppercase text-sm">AstroImpacto</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- INFOGRAFÍA (Perspectivas Astrológicas) -->
+    <div class="a4-page page-break-before" style="background-color: var(--color-bg-tint);">
+        <main class="flex flex-col justify-center h-full w-full relative z-10 content-relative">
+            <h2 class="font-sans text-center text-sm font-bold tracking-[0.3em] text-gris-carbon uppercase mb-4">Perspectivas Astrológicas</h2>
+            <h1 class="font-serif text-center text-7xl text-theme-accent font-bold mb-12">{{ anio_rs }}</h1>
+            
+            <div class="grid grid-cols-1 gap-8 max-w-lg mx-auto w-full">
+                <!-- Transformación -->
+                <div class="text-center avoid-break bg-white p-6 rounded-lg shadow-sm border-l-4 border-theme-accent">
+                    <h3 class="font-sans text-theme-accent font-bold tracking-[0.2em] uppercase text-sm mb-2">Transformación</h3>
+                    <p class="font-serif text-gris-carbon text-lg">{{ perspectivas.transformacion }}</p>
+                </div>
+                
+                <!-- Oportunidades -->
+                <div class="text-center avoid-break bg-white p-6 rounded-lg shadow-sm border-l-4 border-theme-accent">
+                    <h3 class="font-sans text-theme-accent font-bold tracking-[0.2em] uppercase text-sm mb-2">Oportunidades</h3>
+                    <p class="font-serif text-gris-carbon text-lg">{{ perspectivas.oportunidades }}</p>
+                </div>
+
+                <!-- Cambio -->
+                <div class="text-center avoid-break bg-white p-6 rounded-lg shadow-sm border-l-4 border-theme-accent">
+                    <h3 class="font-sans text-theme-accent font-bold tracking-[0.2em] uppercase text-sm mb-2">Cambio</h3>
+                    <p class="font-serif text-gris-carbon text-lg">{{ perspectivas.cambio }}</p>
+                </div>
+
+                <!-- Relaciones -->
+                <div class="text-center avoid-break bg-white p-6 rounded-lg shadow-sm border-l-4 border-theme-accent">
+                    <h3 class="font-sans text-theme-accent font-bold tracking-[0.2em] uppercase text-sm mb-2">Relaciones</h3>
+                    <p class="font-serif text-gris-carbon text-lg">{{ perspectivas.relaciones }}</p>
+                </div>
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">02</span>
+        </footer>
+    </div>
+
+    <!-- INTRODUCCIÓN Y CARTA NATAL RESUMIDA -->
+    <div class="a4-page page-break-before">
+        <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <main class="content-relative flex-grow">
+            <div class="texto-ia mb-10 italic text-center px-8 border-b border-gray-200 pb-8 text-theme-dark font-serif text-lg">
+                {{ intro_texto | safe }}
+            </div>
+
+            <h2 class="font-serif text-2xl text-theme-accent mb-6 font-bold border-l-4 border-theme-accent pl-3">Carta Natal versión resumida</h2>
+            <div class="texto-ia space-y-4">
+                {{ carta_natal_resumen | safe }}
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">03</span>
+        </footer>
+    </div>
+
+    <!-- TRÁNSITOS PERSONALES -->
+    <div class="a4-page page-break-before">
+        <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <main class="content-relative flex-grow">
+            <h2 class="font-serif text-2xl text-theme-accent mb-6 font-bold border-l-4 border-theme-accent pl-3">Tránsitos personales</h2>
+            <div class="texto-ia space-y-4">
+                {{ transitos_personales | safe }}
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">04</span>
+        </footer>
+    </div>
+
+    <!-- PROGRESIONES SECUNDARIAS -->
+    <div class="a4-page page-break-before">
+        <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <main class="content-relative flex-grow">
+            <h2 class="font-serif text-2xl text-theme-accent mb-6 font-bold border-l-4 border-theme-accent pl-3">Progresiones secundarias y tu mundo interior</h2>
+            <div class="texto-ia space-y-4 mb-8">
+                {{ progresiones_secundarias | safe }}
+            </div>
+            
+            <div class="bg-gris-suave p-6 rounded-lg border border-gray-200 avoid-break border-l-4 border-l-theme-accent">
+                <h3 class="font-sans font-bold text-theme-accent mb-4">Cómo actuar ante este escenario:</h3>
+                <ul class="bullet-list mb-0">
+                    {% for item in como_actuar_progresiones %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">05</span>
+        </footer>
+    </div>
+
+    <!-- REVOLUCIÓN SOLAR (PARTE 1) -->
+    <div class="a4-page page-break-before">
+        <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <!-- Marca de agua decorativa -->
+        <svg class="watermark text-theme-accent" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="100" r="35" stroke="currentColor" stroke-width="4" fill="none"/>
+            <path d="M100 15 L100 50 M100 150 L100 185 M15 100 L50 100 M150 100 L185 100" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+            <path d="M40 40 L65 65 M135 135 L160 160 M40 160 L65 135 M135 65 L160 40" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+
+        <main class="content-relative flex-grow">
+            <h2 class="font-serif text-2xl text-theme-accent mb-6 font-bold border-l-4 border-theme-accent pl-3">Revolución Solar {{ anio_rs }}</h2>
+            <div class="texto-ia space-y-4 mb-8">
+                {{ revolucion_solar_general_1 | safe }}
+            </div>
+
+            <div class="bg-white p-6 shadow-sm border border-gray-100 rounded-lg avoid-break">
+                <h3 class="font-sans font-bold text-theme-accent mb-4">Esta revo te propone:</h3>
+                <ul class="bullet-list mb-0">
+                    {% for item in revo_propone %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">06</span>
+        </footer>
+    </div>
+
+    <!-- SITUACIÓN LABORAL Y ECONÓMICA -->
+    <div class="a4-page page-break-before">
+        <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <main class="content-relative flex-grow">
+            <h2 class="font-serif text-2xl text-theme-accent mb-6 font-bold border-l-4 border-theme-accent pl-3">Situación Laboral y Económica {{ anio_rs }}</h2>
+            <div class="texto-ia space-y-4 mb-8">
+                {{ situacion_laboral_economica | safe }}
+            </div>
+
+            <div class="avoid-break mb-6">
+                <h3 class="font-sans font-bold text-theme-accent mb-3 text-sm uppercase tracking-wide">Para el logro de objetivos profesionales se te pide:</h3>
+                <ul class="bullet-list">
+                    {% for item in logro_objetivos_profesionales %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="avoid-break mb-6">
+                <h3 class="font-sans font-bold text-theme-accent mb-3 text-sm uppercase tracking-wide">Posibles oportunidades de crecimiento profesional:</h3>
+                <ul class="bullet-list">
+                    {% for item in oportunidades_profesionales %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="avoid-break">
+                <h3 class="font-sans font-bold text-theme-accent mb-3 text-sm uppercase tracking-wide">Cómo enfrentar el {{ anio_rs }} en términos profesionales:</h3>
+                <ul class="bullet-list mb-0">
+                    {% for item in como_enfrentar_profesional %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">07</span>
+        </footer>
+    </div>
+
+    <!-- SITUACIÓN EMOCIONAL -->
+    <div class="a4-page page-break-before">
+        <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <!-- Marca de agua decorativa -->
+        <svg class="watermark text-theme-accent" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="100" r="35" stroke="currentColor" stroke-width="4" fill="none"/>
+            <path d="M100 15 L100 50 M100 150 L100 185 M15 100 L50 100 M150 100 L185 100" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+            <path d="M40 40 L65 65 M135 135 L160 160 M40 160 L65 135 M135 65 L160 40" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+
+        <main class="content-relative flex-grow">
+            <h2 class="font-serif text-2xl text-theme-accent mb-6 font-bold border-l-4 border-theme-accent pl-3">Situación Emocional {{ anio_rs }}</h2>
+            <div class="texto-ia space-y-4 mb-8">
+                {{ situacion_emocional | safe }}
+            </div>
+
+            <div class="bg-gris-suave p-6 rounded-lg border border-gray-200 avoid-break mt-8">
+                <h3 class="font-sans font-bold text-theme-accent mb-4 text-sm uppercase tracking-wide flex items-center gap-2"><span class="text-xl">✦</span> Oportunidades en relaciones:</h3>
+                <ul class="bullet-list mb-0">
+                    {% for item in oportunidades_relaciones %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">08</span>
+        </footer>
+    </div>
+
+    <!-- PANORAMA TRIMESTRAL -->
+    <div class="a4-page page-break-before">
+        <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <main class="content-relative flex-grow">
+            <h2 class="font-serif text-2xl text-theme-accent mb-8 font-bold border-l-4 border-theme-accent pl-3">Panorama Trimestral</h2>
+            
+            <div class="grid grid-cols-1 gap-8">
+                {% for trimestre in panorama_trimestral %}
+                <div class="avoid-break relative pl-6 border-l-2 border-theme-accent">
+                    <div class="absolute w-3 h-3 bg-theme-accent rounded-full -left-[7px] top-2"></div>
+                    <h3 class="font-serif text-xl font-bold text-gris-carbon mb-3">{{ trimestre.titulo }}</h3>
+                    <div class="texto-ia text-sm">
+                        {{ trimestre.texto | safe }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">09</span>
+        </footer>
+    </div>
+
+    <!-- PLAN DE ACCIÓN -->
+    <div class="a4-page page-break-before">
+        <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <!-- Marca de agua decorativa final -->
+        <svg class="watermark text-theme-accent" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="100" r="35" stroke="currentColor" stroke-width="4" fill="none"/>
+            <path d="M100 15 L100 50 M100 150 L100 185 M15 100 L50 100 M150 100 L185 100" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+            <path d="M40 40 L65 65 M135 135 L160 160 M40 160 L65 135 M135 65 L160 40" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+        </svg>
+
+        <main class="content-relative flex-grow">
+            <h2 class="font-serif text-2xl text-theme-accent mb-6 font-bold border-l-4 border-theme-accent pl-3">Plan de Acción {{ anio_rs }}</h2>
+            
+            <div class="mb-8 avoid-break">
+                <h3 class="font-sans font-bold text-gris-carbon mb-4">Objetivos sugeridos:</h3>
+                <ul class="numbered-list">
+                    {% for item in plan_accion_objetivos %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="bg-white shadow-sm p-8 rounded border border-gray-100 avoid-break mb-10">
+                <h3 class="font-serif text-xl text-theme-accent italic font-bold mb-4">Preguntas para tu reflexión</h3>
+                <ul class="numbered-list mb-0">
+                    {% for item in plan_accion_preguntas %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">10</span>
+        </footer>
+    </div>
+
+    <!-- PÁGINA 11: DESPEDIDA -->
+    <div class="a4-page flex flex-col justify-between text-center bg-gris-suave transition-colors duration-300 page-break-before" style="display: flex !important;">
+        <div class="mt-20">
+            <h2 class="font-serif text-4xl text-theme-accent mb-6">Gracias por confiar en tu proceso</h2>
+            <div class="w-16 h-1 bg-theme-accent mx-auto mb-10"></div>
+            <p class="font-sans text-gris-carbon leading-loose max-w-lg mx-auto mb-12">
+                "Este año será un viaje interno y externo hacia una versión más fuerte, madura y auténtica de ti mismo. Cada situación que enfrentes te llevará un paso más cerca de tu propósito. ¡Estoy segura de que vas a convertir cada desafío en crecimiento!"
+            </p>
+            <div class="w-32 h-32 bg-white rounded-full mx-auto border-4 border-theme-accent shadow-lg flex items-center justify-center overflow-hidden mb-6">
+                <img src="imagen_1.jpg" 
+                     alt="Patricia Ramirez" 
+                     class="w-full h-full object-cover object-center contrast-110 brightness-110">
+            </div>
+            
+            <h3 class="font-serif text-2xl text-gris-carbon font-bold">Patricia Ramirez</h3>
+            <p class="font-sans text-theme-accent text-sm tracking-widest uppercase mb-12">Astróloga Profesional</p>
+        </div>
+
+        <div class="mb-20 bg-white p-10 rounded-lg shadow-sm max-w-md mx-auto w-full">
+            <h4 class="font-sans font-bold text-gray-400 uppercase text-xs mb-6 tracking-widest">SIGAMOS CONECTADOS</h4>
+            <div class="space-y-4 font-sans text-sm text-gris-carbon">
+                <div class="flex items-center justify-center gap-3">
+                    <span class="text-theme-accent font-bold">IG</span> @ASTROIMPACTO
+                </div>
+                <div class="flex items-center justify-center gap-3">
+                    <span class="text-theme-accent font-bold">MAIL</span> astrologiaimpacto@gmail.com
+                </div>
+            </div>
+        </div>
+
+        <footer class="border-t border-theme-accent pt-4 text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto. Todos los derechos reservados.</span><span class="font-bold text-theme-accent text-sm">11</span>
+        </footer>
+    </div>
+
+</body>
+</html>

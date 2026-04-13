@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe Carta Natal - {{ nombre_cliente }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { theme: { extend: { colors: { 
+            'theme-accent': 'var(--color-accent)', 'theme-dark': 'var(--color-accent-dark)', 
+            'gris-carbon': '#4A4A4A', 'gris-suave': 'var(--color-bg-tint)' },
+            fontFamily: { serif: ['"Playfair Display"', 'serif'], sans: ['"Montserrat"', 'sans-serif'] } } } }
+    </script>
+    <style>
+        /* --- LÓGICA DE TEMAS (CSS VARIABLES) --- */
+        :root {
+            --color-accent: #B48E92;       /* Rosa Humo */
+            --color-accent-dark: #967074; 
+            --color-bg-tint: #F9F7F2;      /* Crema */
+        }
+
+        /* TEMA AZUL */
+        {% if tema_color == 'azul' %}
+        :root {
+            --color-accent: #6B818C;       /* Azul Acero */
+            --color-accent-dark: #4A5A63;  
+            --color-bg-tint: #F4F6F8;      /* Gris Hielo */
+        }
+        {% endif %}
+
+        body {
+            background-color: #525659;
+            margin: 0;
+            padding: 20px;
+            font-family: 'Montserrat', sans-serif;
+        }
+        
+        .a4-page {
+            width: 210mm;
+            min-height: 297mm;
+            background: white;
+            margin: 0 auto 30px auto;
+            padding: 20mm;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* --- CONFIGURACIÓN PERFECTA PARA PDF --- */
+        @page {
+            size: A4;
+            margin: 0;
+        }
+        
+        @media print {
+            body { 
+                background: none; 
+                padding: 0; 
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .no-print { display: none; }
+            .a4-page { 
+                margin: 0 !important; 
+                padding: 20mm !important;
+                box-shadow: none !important; 
+                page-break-after: always;
+                width: 210mm;
+                min-height: auto !important; /* Libera la altura para evitar cortes */
+                height: auto !important; 
+                display: block !important; /* CORRECCIÓN CRÍTICA: Evita que Flexbox parta el texto por la mitad */
+            }
+            .page-break-before {
+                page-break-before: always;
+            }
+            /* Evita que un párrafo o título se parta en dos páginas */
+            .texto-ia, h2, h3, ul, .element-bar-bg {
+                page-break-inside: avoid;
+            }
+        }
+
+        .divider-line {
+            height: 1px;
+            background-color: var(--color-accent);
+            width: 100%;
+            margin: 1.5rem 0;
+        }
+        
+        /* Estilos de Lista personalizada (Luna y FODA) */
+        ul.astro-list {
+            list-style: none;
+            padding-left: 1.5rem;
+            margin-left: 0;
+        }
+        ul.astro-list li {
+            overflow-wrap: break-word; /* Evita desbordamiento horizontal */
+            word-wrap: break-word;
+        }
+        ul.astro-list li::before {
+            content: "✦"; 
+            color: var(--color-accent); 
+            font-weight: bold; 
+            display: inline-block;
+            width: 1.5em; 
+            margin-left: -1.5em;
+        }
+
+        .element-bar-bg {
+            background-color: #f3f4f6;
+            height: 0.75rem;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        .element-bar-fill {
+            height: 100%;
+            background-color: var(--color-accent);
+            transition: width 0.5s ease-in-out;
+        }
+        
+        /* Estilo para textos generados por IA (Asegura justificación y no margen) */
+        .texto-ia {
+            font-size: 0.95rem;
+            color: #555;
+            overflow-wrap: break-word; /* Evita desbordamiento horizontal */
+            word-wrap: break-word;
+        }
+        .texto-ia p {
+            margin-bottom: 1rem;
+            line-height: 1.6;
+            text-align: justify; /* Asegura la justificación */
+            text-indent: 0;
+        }
+        .texto-ia strong {
+            color: var(--color-accent-dark);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- PÁGINA 1: PORTADA -->
+    <div class="a4-page text-center border-t-8 border-theme-accent justify-between" style="display: flex !important;">
+        <div class="mt-16">
+            <div class="w-56 h-56 mx-auto mb-8 text-theme-accent">
+                <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                     <circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="1.5"/>
+                    <circle cx="100" cy="90" r="46" stroke="currentColor" stroke-width="0.5" opacity="0.5"/>
+                    <path d="M100 20 L110 90 L100 90 L100 20 Z" class="fill-theme-dark"/> 
+                    <path d="M100 160 L110 90 L100 90 L100 160 Z" class="fill-theme-dark"/>
+                    <path d="M170 90 L100 100 L100 90 L170 90 Z" class="fill-theme-dark"/>
+                    <path d="M30 90 L100 80 L100 90 L30 90 Z" class="fill-theme-dark"/>
+                    <path d="M100 20 L90 90 L100 90 L100 20 Z" fill="currentColor"/> 
+                    <path d="M100 160 L90 90 L100 90 L100 160 Z" fill="currentColor"/>
+                    <path d="M170 90 L100 80 L100 90 L170 90 Z" fill="currentColor"/>
+                    <path d="M30 90 L100 100 L100 90 L30 90 Z" fill="currentColor"/>
+                    <path d="M100 90 L120 110 L100 90 Z" stroke="currentColor" stroke-width="1"/>
+                    <path d="M100 90 L80 110 L100 90 Z" stroke="currentColor" stroke-width="1"/>
+                    <path d="M100 90 L120 70 L100 90 Z" stroke="currentColor" stroke-width="1"/>
+                    <path d="M100 90 L80 70 L100 90 Z" stroke="currentColor" stroke-width="1"/>
+                    <path d="M100 15 L95 25 H105 L100 15 Z" fill="currentColor"/>
+                    <line x1="100" y1="15" x2="100" y2="40" stroke="currentColor" stroke-width="1"/>
+                    <line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="2"/>
+                    <line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="2"/>
+                    <path d="M75 160 L75 170" stroke="currentColor" stroke-width="2"/>
+                    <path d="M125 160 L125 170" stroke="currentColor" stroke-width="2"/>
+                    <path d="M100 185 L95 180 H105 L100 185 Z" fill="currentColor"/>
+                </svg>
+            </div>
+            
+            <h1 class="font-serif text-5xl text-gris-carbon font-bold tracking-wide mb-4 mt-8">{{ titulo_informe }}</h1>
+            <p class="font-sans text-theme-accent text-xl tracking-[0.3em] uppercase mb-8 font-light">Mapa de Identidad & Potencial</p>
+            <div class="w-24 h-[1px] bg-theme-accent mx-auto"></div>
+        </div>
+        <div class="mb-16">
+            <p class="font-sans text-gris-carbon text-sm uppercase tracking-widest mb-2 font-semibold">Preparado para:</p>
+            <h3 class="font-serif text-3xl text-gris-carbon mb-8 italic">{{ nombre_cliente }}</h3>
+            <p class="font-sans text-gray-400 text-xs uppercase tracking-widest">{{ fecha_entrega }}</p>
+        </div>
+    </div>
+
+    <!-- PÁGINA 2: INTRODUCCIÓN Y MANDALA -->
+    <div class="a4-page">
+        <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                <div><span class="font-serif text-2xl text-gris-carbon font-bold block leading-none">AstroImpacto</span></div>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <main class="text-gris-carbon flex-grow">
+            <h2 class="font-serif text-4xl text-theme-accent mb-6">{{ titulo_bienvenida }}</h2>
+            
+            <div class="texto-ia mb-6 text-sm">
+                {{ texto_introductorio | safe }}
+            </div>
+            
+            <div class="bg-gris-suave p-6 rounded-lg border-l-4 border-theme-accent mb-10 mt-6 shadow-md">
+                <div class="flex items-center gap-3 mb-4">
+                    <span class="text-2xl text-theme-accent font-serif">✨</span>
+                    <h3 class="font-sans font-bold text-sm uppercase tracking-widest text-gris-carbon">Tu Tríada Principal (Síntesis)</h3>
+                </div>
+                <div class="font-sans text-gray-700">
+                    <ul class="flex flex-wrap justify-between">
+                        {% for aspecto in aspectos_clave %}
+                            <li class="w-1/3 text-center text-sm font-semibold text-theme-accent p-1">{{ aspecto }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            
+            <h3 class="font-sans font-bold text-sm uppercase tracking-widest mb-4 mt-8 flex items-center gap-2"><span class="text-theme-accent text-xl">✦</span> Tu Mandala Astrológico</h3>
+            
+            <div class="w-full aspect-square max-h-[400px] border border-theme-accent bg-gris-suave flex flex-col items-center justify-center text-theme-accent mb-8 shadow-inner overflow-hidden">
+                <img src="{{ ruta_imagen_carta }}" alt="Carta Natal" class="w-full h-full object-contain">
+            </div>
+
+            <div class="grid grid-cols-3 gap-4 text-center border-t border-b border-gray-100 py-4">
+                {% set parts = datos_nacimiento.split(' - ') %}
+                {% set date_time = parts[0].split(' ') %}
+                {% set place = parts[1] if parts|length > 1 else 'Lugar Desconocido' %}
+                
+                <div><span class="block font-sans text-xs uppercase text-gray-400 mb-1">Fecha Nac.</span><strong class="font-serif text-gris-carbon">{{ date_time[0] }}</strong></div>
+                <div><span class="block font-sans text-xs uppercase text-gray-400 mb-1">Hora</span><strong class="font-serif text-gris-carbon">{{ date_time[1] }}</strong></div>
+                <div><span class="block font-sans text-xs uppercase text-gray-400 mb-1">Lugar</span><strong class="font-serif text-gris-carbon">{{ place }}</strong></div>
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">02</span>
+        </footer>
+    </div>
+
+    <!-- PÁGINA 3: ELEMENTOS Y MODOS -->
+    <div class="a4-page page-break-before">
+         <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <main class="text-gris-carbon flex-grow">
+            <h2 class="font-serif text-3xl text-theme-accent mb-8">Modalidades de Acción</h2>
+            
+            <div class="mb-10">
+                <h3 class="font-sans font-bold text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <span class="text-theme-accent">✦</span> Ritmo Vital (Modos)
+                </h3>
+                <div class="texto-ia">
+                    {{ interpretacion_modos | safe }}
+                </div>
+            </div>
+            
+            <div class="divider-line"></div>
+
+            <h2 class="font-serif text-3xl text-theme-accent mb-8 mt-8">Balance de Elementos</h2>
+
+            <div class="mb-6">
+                <h3 class="font-sans font-bold text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <span class="text-theme-accent">✦</span> Distribución de Elementos
+                </h3>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-xs uppercase mb-1"><span>Fuego (Impulso)</span><span>{{ elementos.fuego }}%</span></div>
+                        <div class="element-bar-bg"><div class="element-bar-fill" style="width: {{ elementos.fuego }}%"></div></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs uppercase mb-1"><span>Tierra (Materialización)</span><span>{{ elementos.tierra }}%</span></div>
+                        <div class="element-bar-bg"><div class="element-bar-fill" style="width: {{ elementos.tierra }}%"></div></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs uppercase mb-1"><span>Aire (Intelecto)</span><span>{{ elementos.aire }}%</span></div>
+                        <div class="element-bar-bg"><div class="element-bar-fill" style="width: {{ elementos.aire }}%"></div></div>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs uppercase mb-1"><span>Agua (Emoción)</span><span>{{ elementos.agua }}%</span></div>
+                        <div class="element-bar-bg"><div class="element-bar-fill" style="width: {{ elementos.agua }}%"></div></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="texto-ia">
+                {{ interpretacion_balance_elementos | safe }}
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">03</span>
+        </footer>
+    </div>
+
+    <!-- PÁGINA 4: EL SOL -->
+    <div class="a4-page page-break-before">
+         <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <main class="text-gris-carbon flex-grow">
+            <div class="flex items-center gap-4 mb-6">
+                <span class="text-6xl text-theme-accent font-serif">☉</span>
+                <h2 class="font-serif text-4xl text-gris-carbon">El Sol: Tu Esencia</h2>
+            </div>
+            
+            <div class="bg-gris-suave p-6 rounded-lg border-l-4 border-theme-accent mb-8">
+                <p class="font-serif italic text-lg text-gray-600">"{{ frase_destacada_sol }}"</p>
+            </div>
+
+            <h3 class="font-sans font-bold text-xl uppercase tracking-wider mb-4 text-theme-accent">Sol en {{ sol.signo }} (Casa {{ sol.casa }})</h3>
+            
+            <div class="texto-ia">
+                {{ interpretacion_sol_signo | safe }}
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">04</span>
+        </footer>
+    </div>
+
+    <!-- PÁGINA 5: LA LUNA -->
+    <div class="a4-page page-break-before">
+         <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <main class="text-gris-carbon flex-grow">
+            <div class="flex items-center gap-4 mb-6">
+                <span class="text-6xl text-theme-accent font-serif">☽</span>
+                <h2 class="font-serif text-4xl text-gris-carbon">La Luna: Tu Refugio</h2>
+            </div>
+
+            <div class="bg-gris-suave p-6 rounded-lg border-l-4 border-theme-accent mb-8">
+                <p class="font-serif italic text-lg text-gray-600">"{{ frase_destacada_luna }}"</p>
+            </div>
+
+            <h3 class="font-sans font-bold text-xl uppercase tracking-wider mb-4 text-theme-accent">Luna en {{ luna.signo }} (Casa {{ luna.casa }})</h3>
+            
+            <div class="texto-ia mb-8">
+                {{ interpretacion_luna_signo | safe }}
+            </div>
+
+            <ul class="astro-list font-sans text-sm space-y-4 bg-gray-50 p-6 rounded-lg">
+                <li><strong>Mecanismo de Defensa:</strong> {{ luna.mecanismo }}</li>
+                <li><strong>Talento Emocional:</strong> {{ luna.talento }}</li>
+                <li><strong>Necesidad Básica:</strong> {{ luna.necesidad }}</li>
+            </ul>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">05</span>
+        </footer>
+    </div>
+
+    <!-- PÁGINA 6: ASCENDENTE -->
+    <div class="a4-page page-break-before">
+         <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+
+        <main class="text-gris-carbon flex-grow">
+            <div class="flex items-center gap-4 mb-6">
+                <span class="text-6xl text-theme-accent font-serif">AC</span>
+                <h2 class="font-serif text-4xl text-gris-carbon">Ascendente: Tu Ruta</h2>
+            </div>
+
+            <div class="bg-gris-suave p-6 rounded-lg border-l-4 border-theme-accent mb-8">
+                <p class="font-serif italic text-lg text-gray-600">"{{ frase_destacada_asc }}"</p>
+            </div>
+            
+            <h3 class="font-sans font-bold text-xl uppercase tracking-wider mb-4 text-theme-accent">Ascendente en {{ asc.signo }}</h3>
+            
+            <div class="texto-ia">
+                {{ interpretacion_asc_signo | safe }}
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">06</span>
+        </footer>
+    </div>
+    
+    <!-- PÁGINA 7: FODA -->
+    <div class="a4-page page-break-before">
+         <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+        <main class="text-gris-carbon flex-grow">
+            <h2 class="font-serif text-3xl text-theme-accent mb-8">Análisis de Potencial: FODA Personal</h2>
+            <p class="texto-ia mb-8">Este análisis FODA (Fortalezas, Oportunidades, Debilidades, Amenazas) se basa en la síntesis de tus posiciones planetarias clave (Sol, Luna y Ascendente) para ofrecerte una hoja de ruta práctica.</p>
+
+            <div class="grid grid-cols-2 gap-8">
+                <div>
+                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ Fortalezas (Potencias a Usar)</h3>
+                    <ul class="astro-list text-sm space-y-2">
+                        {% for item in foda.fortalezas %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ Debilidades (Patrones a Observar)</h3>
+                    <ul class="astro-list text-sm space-y-2">
+                        {% for item in foda.debilidades %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="mt-6">
+                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ Oportunidades (Rutas de Crecimiento)</h3>
+                    <ul class="astro-list text-sm space-y-2">
+                        {% for item in foda.oportunidades %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="mt-6">
+                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ Amenazas (Riesgos Internos)</h3>
+                    <ul class="astro-list text-sm space-y-2">
+                        {% for item in foda.amenazas %}
+                            <li>{{ item }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">07</span>
+        </footer>
+    </div>
+
+    <!-- PÁGINA 8: GIGANTES DEL CIELO -->
+    <div class="a4-page page-break-before">
+         <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+        <main class="text-gris-carbon flex-grow">
+            <h2 class="font-serif text-3xl text-theme-accent mb-8">Los Gigantes del Cielo</h2>
+            <div class="texto-ia mb-6">
+                <p>Los planetas sociales (Júpiter y Saturno) y transpersonales (Urano, Neptuno y Plutón) marcan el tono de tu generación y señalan las áreas de gran transformación a largo plazo en tu vida.</p>
+            </div>
+
+            {% for gigante in gigantes_del_cielo %}
+            <div class="mb-6">
+                <h3 class="font-sans font-bold text-lg border-b border-gray-200 pb-1 mb-2 text-gris-carbon">
+                     {{ gigante.nombre }} en {{ gigante.signo }} <span class="text-sm font-normal text-gray-500">(Casa {{ gigante.casa }})</span>
+                </h3>
+                <div class="texto-ia">
+                    {{ gigante.texto | safe }}
+                </div>
+            </div>
+            {% endfor %}
+            
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">08</span>
+        </footer>
+    </div>
+
+    <!-- PÁGINA 9: ASPECTOS PLANETARIOS -->
+    <div class="a4-page page-break-before">
+         <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+        <main class="text-gris-carbon flex-grow">
+            <h2 class="font-serif text-3xl text-theme-accent mb-8">Aspectos Planetarios Clave</h2>
+            
+            <div class="texto-ia mb-6">
+                <p>Esta sección proporciona una visión sintética de las interacciones más importantes (aspectos) entre los planetas en tu carta natal. Estos aspectos definen tus talentos y desafíos internos.</p>
+            </div>
+
+            {% for aspecto in aspectos_interpretados %}
+            <div class="mb-6">
+                <h3 class="font-sans font-bold text-lg border-b border-gray-200 pb-1 mb-2 text-gris-carbon">
+                     {{ aspecto.titulo }} <span class="text-sm font-normal text-gray-500">({{ aspecto.subtitulo }})</span>
+                </h3>
+                <div class="texto-ia">
+                    {{ aspecto.texto | safe }}
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if aspectos_interpretados|length == 0 %}
+                <div class="text-center text-gray-500 italic mt-10">
+                    <p>No se encontraron aspectos mayores con un orbe cerrado, o el servicio de cálculo de aspectos falló. </p>
+                </div>
+            {% endif %}
+            
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">09</span>
+        </footer>
+    </div>
+    
+    <!-- PÁGINA 10: INTERPRETACIÓN GLOBAL -->
+    <div class="a4-page page-break-before">
+         <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
+            <div class="flex items-center gap-4">
+                 <div class="w-10 h-10 text-theme-accent"><svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/><path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/><path d="M170 90 L100 100 L30 90 L100 80 Z" fill="currentColor"/><line x1="100" y1="140" x2="100" y2="185" stroke="currentColor" stroke-width="4"/><line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/></svg></div>
+                 <span class="font-serif text-2xl text-gris-carbon font-bold">AstroImpacto</span>
+            </div>
+            <div class="text-right border-l border-gray-200 pl-4">
+                <p class="font-sans text-xs text-gray-500 uppercase tracking-widest font-semibold">Patricia Ramirez</p>
+                <p class="font-serif text-xs text-theme-accent italic">Astróloga Profesional</p>
+            </div>
+        </header>
+        <main class="text-gris-carbon flex-grow">
+            <h2 class="font-serif text-3xl text-theme-accent mb-8">Interpretación Global de la Personalidad</h2>
+            
+            <div class="texto-ia mb-6">
+                <p>{{ frase_destacada_global }}</p>
+            </div>
+            
+            <div class="texto-ia bg-gris-suave p-6 rounded-lg border-l-4 border-theme-accent shadow-md">
+                {{ interpretacion_personalidad_global | safe }}
+            </div>
+        </main>
+        <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">10</span>
+        </footer>
+    </div>
+
+    <!-- PÁGINA 11: DESPEDIDA -->
+    <div class="a4-page flex flex-col justify-between text-center bg-gris-suave transition-colors duration-300 page-break-before" style="display: flex !important;">
+        <div class="mt-20">
+            <h2 class="font-serif text-4xl text-theme-accent mb-6">Gracias por confiar en tu proceso</h2>
+            <div class="w-16 h-1 bg-theme-accent mx-auto mb-10"></div>
+            <p class="font-sans text-gris-carbon leading-loose max-w-lg mx-auto mb-12">
+                Espero que este informe te haya dado la claridad y el impacto que buscabas. Recuerda que los astros inclinan, pero no obligan. Te dejo mis datos para que sigamos en contacto.
+            </p>
+            <div class="w-32 h-32 bg-white rounded-full mx-auto border-4 border-theme-accent shadow-lg flex items-center justify-center overflow-hidden mb-6">
+                <img src="imagen_1.jpg" 
+                     alt="Patricia Ramirez" 
+                     class="w-full h-full object-cover object-center contrast-110 brightness-110">
+            </div>
+            
+            <h3 class="font-serif text-2xl text-gris-carbon font-bold">Patricia Ramirez</h3>
+            <p class="font-sans text-theme-accent text-sm tracking-widest uppercase mb-12">Astróloga Profesional</p>
+        </div>
+
+        <div class="mb-20 bg-white p-10 rounded-lg shadow-sm max-w-md mx-auto w-full">
+            <h4 class="font-sans font-bold text-gray-400 uppercase text-xs mb-6 tracking-widest">{{ texto_conectados }}</h4>
+            <div class="space-y-4 font-sans text-sm text-gris-carbon">
+                <div class="flex items-center justify-center gap-3">
+                    <span class="text-theme-accent font-bold">IG</span> {{ datos_contacto.ig }}
+                </div>
+                <div class="flex items-center justify-center gap-3">
+                    <span class="text-theme-accent font-bold">MAIL</span> {{ datos_contacto.mail }}
+                </div>
+            </div>
+        </div>
+
+        <footer class="border-t border-theme-accent pt-4 text-xs font-sans text-gray-400">
+            <span>© 2025 AstroImpacto. Todos los derechos reservados.</span><span class="font-bold text-theme-accent text-sm">11</span>
+        </footer>
+    </div>
+
+</body>
+</html>
