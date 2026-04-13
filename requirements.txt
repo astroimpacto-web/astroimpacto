@@ -4,3 +4,4 @@ jinja2
 geopy
 pyswisseph
 st-gsheets-connection
+openai

@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 import os
 from jinja2 import Environment, FileSystemLoader
-import motor_astro 
+import motor_web
 from geopy.geocoders import Nominatim
 
 # ==========================================
@@ -268,9 +268,9 @@ elif modo_app == "⚙️ Taller de Informes":
                     except: pass
 
                 with st.spinner(f"Conectando a la IA y calculando posiciones..."):
-                    if es_transito: st.session_state.tipo_reporte_actual = "TRANSITOS"; datos, plantilla = motor_astro.procesar_transitos_con_ia(cliente_obj, tipo_obj, id_seleccionado)
-                    elif es_revo: st.session_state.tipo_reporte_actual = "REVOLUCION"; datos, plantilla = motor_astro.procesar_rs_con_ia(cliente_obj, tipo_obj, id_seleccionado, lat_rs=lat_final, lon_rs=lon_final, lugar_rs=lugar_rs)
-                    else: st.session_state.tipo_reporte_actual = "NATAL"; datos, plantilla = motor_astro.procesar_natal_con_ia(cliente_obj, tipo_obj, id_seleccionado)
+                    if es_transito: st.session_state.tipo_reporte_actual = "TRANSITOS"; datos, plantilla = motor_web.procesar_transitos_con_ia(cliente_obj, tipo_obj, id_seleccionado)
+                    elif es_revo: st.session_state.tipo_reporte_actual = "REVOLUCION"; datos, plantilla = motor_web.procesar_rs_con_ia(cliente_obj, tipo_obj, id_seleccionado, lat_rs=lat_final, lon_rs=lon_final, lugar_rs=lugar_rs)
+                    else: st.session_state.tipo_reporte_actual = "NATAL"; datos, plantilla = motor_web.procesar_natal_con_ia(cliente_obj, tipo_obj, id_seleccionado)
 
                     if datos:
                         st.session_state.datos_diccionario = datos

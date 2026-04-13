@@ -1,6 +1,6 @@
 import swisseph as swe
 import pandas as pd
-import consultor_ia
+import consultor_web
 from datetime import datetime
 
 # ==========================================
@@ -69,7 +69,7 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
         }
         
         # Llamada a tu módulo de IA
-        # datos_finales = consultor_ia.redactar_natal(datos_para_ia)
+        # datos_finales = consultor_web.redactar_natal(datos_para_ia)
         
         return datos_para_ia, "informe_astroimpacto.html"
     except Exception as e:
