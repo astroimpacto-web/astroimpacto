@@ -9,12 +9,12 @@ from geopy.geocoders import Nominatim
 # ==========================================
 # CONFIGURACIÓN DE PÁGINA Y ESTÉTICA
 # ==========================================
-st.set_page_config(page_title="Astroimpacto", page_icon="logo_astro.png", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Astroimpacto", page_icon="icono_v2.png", layout="wide", initial_sidebar_state="expanded")
 # 👑 ADIÓS CORONA: Truco para forzar el ícono en celulares
 # Forzar el manifest para el ícono en celulares
 st.markdown('<link rel="manifest" href="./manifest.json">', unsafe_allow_html=True)
 try:
-    icono_base64 = get_base64_of_bin_file('logo_astro.png')
+    icono_base64 = get_base64_of_bin_file('icono_v2.png')
     if icono_base64:
         components.html(
             f"""
