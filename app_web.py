@@ -125,10 +125,11 @@ st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700
 modo_app = st.sidebar.radio("Navegación", ["⚙️ Taller de Informes", "📅 Programar Cliente"], label_visibility="collapsed")
 st.sidebar.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
 
-c
-# ==========================================
-# MODO 2: GENERAR (EL TALLER DE INFORMES)
-# ==========================================
+# AQUÍ ESTÁ EL CAMBIO CLAVE: Cambiamos el primer "elif" por un "if"
+if modo_app == "📅 Programar Cliente":
+    st.markdown("<h2 style='font-family: Playfair Display, serif; color: #4A4A4A; border-bottom: 2px solid #e8e3d8; padding-bottom: 10px;'>📅 Programar Cliente</h2>", unsafe_allow_html=True)
+    # Aquí iría el código de programar... (déjalo como lo tienes, pero asegúrate de que empiece con "if")
+
 elif modo_app == "⚙️ Taller de Informes":
     if not st.session_state.textos_generados:
         st.markdown("<h2 style='font-family: Playfair Display, serif; color: #4A4A4A; border-bottom: 2px solid #e8e3d8; padding-bottom: 10px;'>⚙️ Taller de Informes</h2>", unsafe_allow_html=True)
