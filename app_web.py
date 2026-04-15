@@ -7,7 +7,7 @@ from jinja2 import Environment, FileSystemLoader
 import motor_web
 from geopy.geocoders import Nominatim
 
-# Función necesaria para procesar la imagen (asegúrate de que esté aquí arriba)
+# Función necesaria para procesar la imagen
 @st.cache_data
 def get_base64_of_bin_file(bin_file):
     try:
@@ -22,24 +22,27 @@ def get_base64_of_bin_file(bin_file):
 # ==========================================
 st.set_page_config(page_title="Astroimpacto", page_icon="apple-icon.png", layout="wide")
 
-# Forzar ícono en iPhone y limpiar errores
-st.markdown(f"""
-    <link rel="apple-touch-icon" href="apple-icon.png">
-    <link rel="manifest" href="./manifest.json">
-""", unsafe_allow_html=True)
+# Forzar ícono en iPhone y manifest
+st.markdown('<link rel="apple-touch-icon" href="apple-icon.png">', unsafe_allow_html=True)
+st.markdown('<link rel="manifest" href="./manifest.json">', unsafe_allow_html=True)
 
-# Bloque de seguridad corregido
+# Bloque de seguridad para el ícono web
 try:
     icono_base64 = get_base64_of_bin_file('apple-icon.png')
     if icono_base64:
         st.markdown(f'<link rel="icon" href="{icono_base64}">', unsafe_allow_html=True)
-except Exception:
+except:
     pass
 
-# --- AQUÍ EMPIEZA TU CUSTOM_CSS ---
+# --- AQUÍ TU CUSTOM_CSS CORREGIDO ---
 CUSTOM_CSS = """
 <style>
-...
+    [data-testid="stSidebar"] { background-color: #fdfcf9; border-right: 1px solid #e8e3d8; }
+    .stButton>button { border-radius: 8px; font-weight: 600; }
+    .stSelectbox div[data-baseweb="select"] { white-space: normal !important; }
+</style>
+"""
+st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 # MARCA Y ENCABEZADO LATERAL
 SIDEBAR_HEADER_HTML = """
@@ -122,41 +125,7 @@ st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700
 modo_app = st.sidebar.radio("Navegación", ["⚙️ Taller de Informes", "📅 Programar Cliente"], label_visibility="collapsed")
 st.sidebar.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
 
-# ==========================================
-# MODO 1: PROGRAMAR (GUARDAR EN GOOGLE SHEETS)
-# ==========================================
-if modo_app == "📅 Programar Cliente":
-    st.markdown("<h2 style='font-family: Playfair Display, serif; color: #4A4A4A; border-bottom: 2px solid #e8e3d8; padding-bottom: 10px;'>📅 Agenda de Clientes</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #B48E92; font-weight: 500; margin-bottom: 2rem;'>Agrega un cliente a tu cola de trabajo en la plataforma.</p>", unsafe_allow_html=True)
-    
-    if not df_cli.empty:
-        opciones_cli = [f"{row['Nombres']} {row.get('Apellido_Paterno','')} (ID: {row['id_consultante']})" for _, row in df_cli.iterrows()]
-        cliente_sel = st.selectbox("1. Selecciona el Cliente:", opciones_cli)
-        
-        opciones_tipo = []
-        if not df_tipos.empty and 'Id_Informe' in df_tipos.columns:
-            for _, row in df_tipos.iterrows():
-                id_tipo = str(row['Id_Informe']).replace('.0', '').strip()
-                nombre_tipo = id_tipo
-                for col in ['Nombre', 'Nombre_Informe', 'Tipo', 'Tipo_Informe', 'Descripcion']:
-                    if col in df_tipos.columns:
-                        nombre_tipo = str(row[col])
-                        break
-                if nombre_tipo == id_tipo or nombre_tipo.lower() == 'nan':
-                    if id_tipo == "1": nombre_tipo = "Carta Natal"
-                    elif id_tipo == "2": nombre_tipo = "Tránsitos"
-                    elif id_tipo == "3": nombre_tipo = "Revolución Solar"
-                    else: nombre_tipo = f"Reporte Tipo {id_tipo}"
-                opciones_tipo.append(f"{nombre_tipo} (ID: {id_tipo})")
-        else:
-            opciones_tipo = ["Carta Natal (ID: 1)", "Tránsitos (ID: 2)", "Revolución Solar (ID: 3)"]
-            
-        tipo_sel = st.selectbox("2. Selecciona el Tipo de Informe:", opciones_tipo)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("➕ Guardar en Agenda", type="primary"):
-            st.info("⚠️ NOTA: Al estar conectada a la web, Google requiere una Clave de Seguridad avanzada para *escribir* en tu hoja. Por ahora, por favor agrega los clientes nuevos directamente en tu pestaña 'Informes_Programados' de Google Sheets.")
-
+c
 # ==========================================
 # MODO 2: GENERAR (EL TALLER DE INFORMES)
 # ==========================================
