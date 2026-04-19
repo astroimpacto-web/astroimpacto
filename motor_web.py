@@ -31,129 +31,99 @@ def obtener_datos_astrologicos(dia, mes, anio, hora, minuto, lat, lon):
     return posiciones, casas
 
 # ==========================================
-# FUNCIONES DE PROCESAMIENTO (BATALLES IA)
+# FUNCIONES DE PROCESAMIENTO (MÁXIMA PROFUNDIDAD)
 # ==========================================
 
-def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
-    """Genera el informe completo de Carta Natal con una sola llamada a IA"""
-    try:
-        nombre = cliente.get('Nombres', 'Consultante')
-        rol = "Eres Patricia Ramirez, astróloga profesional de Astroimpacto."
-        
-        # PROMPT MAESTRO PARA EVITAR ERRORES DE CONEXIÓN
-        prompt = f"""
-        Genera un análisis natal para {nombre}. 
-        Responde exactamente en este formato, separando cada sección con '###':
-        Palabra1 - Palabra2 - Palabra3 ###
-        Interpretación profunda del Sol ###
-        Interpretación psicológica de la Luna ###
-        Camino de vida del Ascendente ###
-        Síntesis final de la personalidad.
-        """
-        
-        resultado = consultor_web.consultar_gpt(rol, prompt, 1200)
-        
-        # Si la IA falla, usamos fallbacks para que no salga el error de conexión
-        if "Error" in resultado or not resultado:
-            partes = ["Esencia - Emoción - Camino", "Esencia solar en desarrollo.", "Mundo emocional profundo.", "Ruta de aprendizaje vital.", "Síntesis en proceso."]
-        else:
-            partes = [p.strip() for p in resultado.split('###')]
-
-        datos_para_ia = {
-            "nombre_cliente": nombre,
-            "titulo_informe": "Análisis de Carta Natal",
-            "aspectos_clave": partes[0].split(' - ') if len(partes) > 0 else ["Sol", "Luna", "Asc"],
-            "interpretacion_sol_signo": partes[1] if len(partes) > 1 else "Interpretación solar.",
-            "interpretacion_luna_signo": partes[2] if len(partes) > 2 else "Interpretación lunar.",
-            "interpretacion_asc_signo": partes[3] if len(partes) > 3 else "Interpretación ascendente.",
-            "interpretacion_personalidad_global": partes[4] if len(partes) > 4 else "Síntesis final.",
-            "foda": {
-                "fortalezas": ["Capacidad de liderazgo", "Empatía natural"],
-                "oportunidades": ["Crecimiento profesional", "Nuevos vínculos"],
-                "debilidades": ["Autoexigencia", "Dudas internas"],
-                "amenazas": ["Estrés ambiental", "Distracciones"]
-            }
-        }
-        
-        return datos_para_ia, "informe_astroimpacto.html"
-    except Exception as e:
-        return None, f"Error en Natal: {str(e)}"
-
 def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, lugar_rs=None):
-    """Genera el informe de Revolución Solar con una sola llamada a IA"""
+    """Genera el informe de Revolución Solar COMPLETO (Incluye Natal, Tránsitos y Progresiones)"""
     try:
         nombre = cliente.get('Nombres', 'Consultante')
-        rol = "Eres Patricia Ramirez, astróloga profesional."
+        rol = "Eres Patricia Ramirez, astróloga profesional de Astroimpacto. Tu estilo es profundo, psicológico, evolutivo y muy detallado. No uses listas, escribe párrafos fluidos y elegantes."
         
+        # PROMPT MAESTRO AMPLIADO: Pedimos las 11 secciones necesarias
         prompt = f"""
-        Genera una Revolución Solar para {nombre} (Lugar: {lugar_rs}).
-        Responde separando con '###':
-        Reto de transformación (2 líneas) ###
-        Oportunidad (2 líneas) ###
-        Cambio principal (2 líneas) ###
-        Vínculos (2 líneas) ###
-        Clima general anual (3 párrafos) ###
-        Panorama laboral ###
-        Panorama emocional
+        Realiza una Revolución Solar exhaustiva para {nombre} (Relocalizada en {lugar_rs}).
+        Debes generar textos largos y significativos. Responde exactamente en este formato, separando con '###':
+
+        1. Reto de transformación anual (3 líneas profundas) ###
+        2. Oportunidad mayor del año (3 líneas profundas) ###
+        3. Cambio principal en la estructura de vida (3 líneas profundas) ###
+        4. Clima vincular y de relaciones (3 líneas profundas) ###
+        5. Interpretación extensa del Clima General de la Revolución Solar. Habla del Ascendente Anual y la posición del Sol. (Mínimo 4 párrafos largos) ###
+        6. Panorama Laboral y Económico detallado (Mínimo 3 párrafos) ###
+        7. Panorama Emocional, Hogar y Salud interna (Mínimo 3 párrafos) ###
+        8. Introducción inspiradora al informe (1 párrafo cálido) ###
+        9. Resumen Psicológico de su Carta Natal Base (Mínimo 3 párrafos sobre su esencia) ###
+        10. Análisis de los Tránsitos Lentos actuales (Plutón, Saturno, Júpiter) y cómo afectan este año (Mínimo 3 párrafos) ###
+        11. Análisis de sus Progresiones Secundarias y su estado de maduración interna actual (Mínimo 3 párrafos)
         """
         
-        resultado = consultor_web.consultar_gpt(rol, prompt, 1500)
+        # Aumentamos los tokens al máximo (3500) para permitir la extensión solicitada
+        resultado = consultor_web.consultar_gpt(rol, prompt, 3500)
         
+        # Fallback en caso de error de conexión
         if "Error" in resultado or not resultado:
-            partes = ["Transformación interna", "Nuevas metas", "Cambio de enfoque", "Vínculos estables", "Año de crecimiento.", "Laboral positivo.", "Emocional estable."]
+            partes = ["Error de carga"] * 11
         else:
             partes = [p.strip() for p in resultado.split('###')]
 
+        # Construcción del diccionario con todas las llaves que espera la web
         datos_para_ia = {
             "nombre_cliente": nombre,
-            "titulo_informe": "Revolución Solar",
+            "titulo_informe": f"Revolución Solar {datetime.now().year}",
             "perspectivas": {
                 "transformacion": partes[0] if len(partes) > 0 else "",
                 "oportunidades": partes[1] if len(partes) > 1 else "",
                 "cambio": partes[2] if len(partes) > 2 else "",
                 "relaciones": partes[3] if len(partes) > 3 else ""
             },
-            "revolucion_solar_general_1": partes[4] if len(partes) > 4 else "Clima general.",
-            "situacion_laboral_economica": partes[5] if len(partes) > 5 else "Laboral.",
-            "situacion_emocional": partes[6] if len(partes) > 6 else "Emocional.",
+            "revolucion_solar_general_1": partes[4] if len(partes) > 4 else "Contenido en proceso...",
+            "situacion_laboral_economica": partes[5] if len(partes) > 5 else "Contenido en proceso...",
+            "situacion_emocional": partes[6] if len(partes) > 6 else "Contenido en proceso...",
+            "intro_texto": partes[7] if len(partes) > 7 else "Bienvenido a tu informe.",
+            "carta_natal_resumen": partes[8] if len(partes) > 8 else "Resumen natal no disponible.",
+            "transitos_personales": partes[9] if len(partes) > 9 else "Tránsitos no disponibles.",
+            "progresiones_secundarias": partes[10] if len(partes) > 10 else "Progresiones no disponibles.",
             "panorama_trimestral": [
-                {"titulo": "Trimestre 1", "texto": "Inicios y siembra."},
-                {"titulo": "Trimestre 2", "texto": "Desarrollo y ajustes."},
-                {"titulo": "Trimestre 3", "texto": "Cosecha y resultados."},
-                {"titulo": "Trimestre 4", "texto": "Integración y balance."}
+                {"titulo": "Trimestre 1: Inicios", "texto": "Periodo de gran actividad inicial donde las semillas del año comienzan a brotar."},
+                {"titulo": "Trimestre 2: Consolidación", "texto": "Momento de revisar los pasos dados y asentar las bases materiales."},
+                {"titulo": "Trimestre 3: Cosecha", "texto": "Fase de visibilidad donde los resultados del esfuerzo anual se manifiestan."},
+                {"titulo": "Trimestre 4: Integración", "texto": "Balance final y preparación para el cierre del ciclo solar actual."}
             ]
         }
+        
         return datos_para_ia, "informe_astroimpacto_rs.html"
     except Exception as e:
-        return None, f"Error en RS: {str(e)}"
+        return None, f"Error en Revolución Solar: {str(e)}"
 
-def procesar_transitos_con_ia(cliente, tipo_obj, id_cli):
-    """Genera el informe de Tránsitos Anuales optimizado"""
+def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
+    """Genera el informe profundo de Carta Natal"""
     try:
         nombre = cliente.get('Nombres', 'Consultante')
-        rol = "Patricia Ramirez, Astróloga."
+        rol = "Eres Patricia Ramirez, astróloga profesional. Redacta de forma extensa y psicológica."
         
-        prompt = f"Genera un Lema Anual ### Análisis del Clima Anual ### Oportunidad ### Advertencia para {nombre}. Separa con ###"
-        resultado = consultor_web.consultar_gpt(rol, prompt, 800)
+        prompt = f"""
+        Realiza un análisis natal profundo para {nombre}. Responde separando con '###':
+        Palabras Clave ###
+        Interpretación extensa del Sol (3 párrafos) ###
+        Interpretación extensa de la Luna (3 párrafos) ###
+        Interpretación extensa del Ascendente (3 párrafos) ###
+        Gran síntesis final de personalidad (4 párrafos)
+        """
         
-        if "Error" in resultado or not resultado:
-            partes = ["Año de luz", "Clima favorable", "Crecimiento", "Paciencia"]
-        else:
-            partes = [p.strip() for p in resultado.split('###')]
+        resultado = consultor_web.consultar_gpt(rol, prompt, 2500)
+        partes = [p.strip() for p in resultado.split('###')] if "Error" not in resultado else [""]*5
 
         datos_para_ia = {
             "nombre_cliente": nombre,
-            "titulo_informe": "Pronóstico de Tránsitos",
-            "frase_anual_corta": partes[0] if len(partes) > 0 else "Lema anual.",
-            "analisis_clima_anual": partes[1] if len(partes) > 1 else "Clima anual.",
-            "oportunidad_anual": partes[2] if len(partes) > 2 else "Oportunidad.",
-            "atencion_anual": partes[3] if len(partes) > 3 else "Atención.",
-            "habito_recomendado": "Meditación diaria.",
-            "calendario_por_meses": {
-                "Enero": [{"fecha": "15/01", "texto_efecto": "Integración de energías iniciales."}],
-                "Febrero": [{"fecha": "10/02", "texto_efecto": "Momento de revisión emocional."}]
-            }
+            "titulo_informe": "Análisis de Carta Natal",
+            "aspectos_clave": partes[0].split(' - ') if len(partes) > 0 else ["Sol", "Luna", "Asc"],
+            "interpretacion_sol_signo": partes[1] if len(partes) > 1 else "",
+            "interpretacion_luna_signo": partes[2] if len(partes) > 2 else "",
+            "interpretacion_asc_signo": partes[3] if len(partes) > 3 else "",
+            "interpretacion_personalidad_global": partes[4] if len(partes) > 4 else "",
+            "foda": {"fortalezas": ["Liderazgo"], "oportunidades": ["Crecimiento"], "debilidades": ["Dudas"], "amenazas": ["Presión"]}
         }
-        return datos_para_ia, "informe_astroimpacto_transitos.html"
+        return datos_para_ia, "informe_astroimpacto.html"
     except Exception as e:
-        return None, f"Error en Tránsitos: {str(e)}"
+        return None, str(e)
