@@ -303,12 +303,15 @@ elif modo_app == "⚙️ Taller de Informes":
 
         st.divider()
 
-        # ==========================================
+      # ==========================================
         # BOTONES FINALES 
         # ==========================================
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1: btn_preview = st.button("👁️ VER VISTA PREVIA (No guarda)", use_container_width=True)
-        with col_btn2: btn_guardar = st.button("💾 GUARDAR DEFINITIVO", type="primary", use_container_width=True)
+        with col_btn2: btn_guardar = st.button("💾 PREPARAR DESCARGA", type="primary", use_container_width=True)
+
+        # INYECTAMOS EL LOGO ANTES DE GENERAR
+        d['logo_base64'] = get_base64_of_bin_file('apple-icon.png')
 
         if btn_preview:
             try:
@@ -323,15 +326,21 @@ elif modo_app == "⚙️ Taller de Informes":
                 env = Environment(loader=FileSystemLoader('.'))
                 html_final = env.get_template(st.session_state.plantilla_usar).render(d)
 
-                OUTPUT_DIR = r'C:\Astroimpacto\Informes'
                 sufijo = "Transitos" if tipo_actual == "TRANSITOS" else "Revolucion_Solar" if tipo_actual == "REVOLUCION" else "Carta_Natal"
-                ruta_final = os.path.join(OUTPUT_DIR, f"Informe_{str(d.get('nombre_cliente', 'Cliente')).replace(' ', '_')}_{sufijo}.html")
+                nombre_archivo = f"Informe_{str(d.get('nombre_cliente', 'Cliente')).replace(' ', '_')}_{sufijo}.html"
 
-                with open(ruta_final, "w", encoding="utf-8") as f:
-                    f.write(html_final)
-
-                st.success(f"✅ ¡Tu reporte PDF fue generado con éxito!")
-                st.warning("⚠️ Recuerda abrir tu Google Sheet y cambiar el estado del cliente a 'Procesado' manualmente.")
+                st.success(f"✅ ¡Tu reporte está listo!")
+                
+                # BOTÓN DE DESCARGA REAL (Para Web y Celular)
+                st.download_button(
+                    label="⬇️ DESCARGAR INFORME AHORA",
+                    data=html_final,
+                    file_name=nombre_archivo,
+                    mime="text/html",
+                    type="primary",
+                    use_container_width=True
+                )
+                
                 st.balloons()
             except Exception as e:
-                st.error(f"Error guardando el documento final: {e}")
+                st.error(f"Error preparando el documento: {e}")
