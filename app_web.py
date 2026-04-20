@@ -7,9 +7,9 @@ from jinja2 import Environment, FileSystemLoader
 import motor_web
 from geopy.geocoders import Nominatim
 
-# ==========================================
-# 1. FUNCIONES DE APOYO Y SEGURIDAD TÉCNICA
-# ==========================================
+# ==============================================================================
+# 1. FUNCIONES DE APOYO, SEGURIDAD TÉCNICA E IDENTIDAD VISUAL
+# ==============================================================================
 
 @st.cache_data
 def get_base_64_of_bin_file(bin_file):
@@ -23,13 +23,19 @@ def get_base_64_of_bin_file(bin_file):
     except Exception:
         return ""
 
-# CONFIGURACIÓN DE PÁGINA (MODO ANCHO Y BARRA LATERAL ABIERTA)
-st.set_page_config(page_title="Astroimpacto", page_icon="apple-icon.png", layout="wide", initial_sidebar_state="expanded")
+# CONFIGURACIÓN INICIAL DE LA PÁGINA (ESTADO EXPANDIDO Y LAYOUT ANCHO)
+st.set_page_config(
+    page_title="Astroimpacto - Gestión Astrológica Profesional",
+    page_icon="apple-icon.png",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# IDENTIDAD VISUAL PARA IPHONE Y NAVEGADORES
-st.markdown('<link rel="apple-touch-icon" href="apple-icon.png"><link rel="manifest" href="./manifest.json">', unsafe_allow_html=True)
+# IDENTIDAD VISUAL PARA DISPOSITIVOS MÓVILES (IPHONE) Y NAVEGADORES
+st.markdown('<link rel="apple-touch-icon" href="apple-icon.png">', unsafe_allow_html=True)
+st.markdown('<link rel="manifest" href="./manifest.json">', unsafe_allow_html=True)
 
-# BLOQUE DE SEGURIDAD PARA EL ÍCONO WEB (RECUPERADO)
+# BLOQUE DE SEGURIDAD PARA EL ÍCONO WEB (FAVICON)
 try:
     icono_base64 = get_base_64_of_bin_file('apple-icon.png')
     if icono_base64:
@@ -37,36 +43,77 @@ try:
 except Exception:
     pass
 
-# ESTILOS CSS PERSONALIZADOS (DISEÑO PREMIUM ASTROIMPACTO)
+# ESTILOS CSS PERSONALIZADOS (LÍNEA ESTÉTICA PREMIUM ASTROIMPACTO)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
     
-    /* Barra lateral */
-    [data-testid="stSidebar"] { background-color: #fdfcf9; border-right: 1px solid #e8e3d8; }
+    /* Configuración de la barra lateral (Sidebar) */
+    [data-testid="stSidebar"] {
+        background-color: #fdfcf9;
+        border-right: 1px solid #e8e3d8;
+    }
     
-    /* Botones */
-    .stButton>button { border-radius: 8px; font-weight: 600; transition: all 0.3s; width: 100%; height: 3.5rem; margin-top: 10px; }
-    .stButton>button[kind="primary"] { background-color: #B48E92 !important; border: none !important; color: white !important; }
-    .stButton>button[kind="primary"]:hover { background-color: #967074 !important; transform: translateY(-1px); }
+    /* Personalización de Botones */
+    .stButton>button {
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        width: 100%;
+        height: 3.5rem;
+        margin-top: 5px;
+    }
+    .stButton>button[kind="primary"] {
+        background-color: #B48E92 !important;
+        border: none !important;
+        color: white !important;
+    }
+    .stButton>button[kind="primary"]:hover {
+        background-color: #967074 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(180, 142, 146, 0.3);
+    }
     
-    /* Tipografías */
-    h1, h2, h3 { font-family: 'Playfair Display', serif !important; color: #4A4A4A; }
-    html, body, [class*="css"] { font-family: 'Montserrat', sans-serif !important; }
+    /* Tipografías y Títulos */
+    h1, h2, h3, h4 {
+        font-family: 'Playfair Display', serif !important;
+        color: #4A4A4A !important;
+    }
+    html, body, [class*="css"] {
+        font-family: 'Montserrat', sans-serif !important;
+    }
     
-    /* Editores (Expanders) */
-    div[data-testid="stExpander"] { background-color: white; border: 1px solid #f0ebe1; border-radius: 8px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-    .stTextArea textarea { font-size: 0.95rem; line-height: 1.6; color: #333; background-color: #fafafa; border-radius: 8px; border: 1px solid #eee; }
+    /* Paneles de Edición (Expanders) */
+    div[data-testid="stExpander"] {
+        background-color: white;
+        border: 1px solid #f0ebe1;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    
+    /* Cajas de Texto de Interpretación IA */
+    .stTextArea textarea {
+        font-size: 0.95rem;
+        line-height: 1.6;
+        color: #333;
+        background-color: #fafafa;
+        border-radius: 8px;
+        border: 1px solid #eee;
+    }
     
     /* Selectores */
-    .stSelectbox div[data-baseweb="select"] { white-space: normal !important; border-radius: 8px; }
+    .stSelectbox div[data-baseweb="select"] {
+        white-space: normal !important;
+        border-radius: 8px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ENCABEZADO DE MARCA EN LA BARRA LATERAL
+# LOGOTIPO Y ENCABEZADO DE MARCA EN EL PANEL LATERAL
 SIDEBAR_HEADER_HTML = """
-<div style="text-align: center; padding-bottom: 1rem; border-bottom: 1px solid #e8e3d8; margin-bottom: 1rem; margin-top: -2rem;">
-    <div style="width: 50px; height: 50px; margin: 0 auto 10px auto; color: #B48E92;">
+<div style="text-align: center; padding-bottom: 1.5rem; border-bottom: 1px solid #e8e3d8; margin-bottom: 1.5rem; margin-top: -2.5rem;">
+    <div style="width: 55px; height: 55px; margin: 0 auto 12px auto; color: #B48E92;">
         <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="100" cy="90" r="50" stroke="currentColor" stroke-width="3"/>
             <path d="M100 20 L110 90 L100 160 L90 90 Z" fill="currentColor"/>
@@ -75,15 +122,15 @@ SIDEBAR_HEADER_HTML = """
             <line x1="75" y1="165" x2="125" y2="165" stroke="currentColor" stroke-width="4"/>
         </svg>
     </div>
-    <h2 style="font-family: 'Playfair Display', serif; font-size: 1.8rem; color: #4A4A4A; margin: 0; font-weight: 700;">Astroimpacto</h2>
-    <p style="font-family: 'Montserrat', sans-serif; font-size: 0.65rem; letter-spacing: 2px; color: #B48E92; text-transform: uppercase;">Plataforma Web</p>
+    <h2 style="font-family: 'Playfair Display', serif; font-size: 1.9rem; color: #4A4A4A; margin: 0; font-weight: 700; letter-spacing: 0.5px;">Astroimpacto</h2>
+    <p style="font-family: 'Montserrat', sans-serif; font-size: 0.65rem; letter-spacing: 2.5px; color: #B48E92; text-transform: uppercase; margin-top: 6px;">Plataforma Web Profesional</p>
 </div>
 """
 st.sidebar.markdown(SIDEBAR_HEADER_HTML, unsafe_allow_html=True)
 
-# ==========================================
-# 2. INICIALIZACIÓN DE VARIABLES DE SESIÓN
-# ==========================================
+# ==============================================================================
+# 2. GESTIÓN DEL ESTADO DE SESIÓN (PERSISTENCIA DE DATOS)
+# ==============================================================================
 if 'textos_generados' not in st.session_state:
     st.session_state.update({
         'textos_generados': False,
@@ -96,30 +143,35 @@ if 'textos_generados' not in st.session_state:
         'idx_prog_actual': None
     })
 
-# ==========================================
-# 3. CARGA DE GOOGLE SHEETS (CON NORMALIZACIÓN)
-# ==========================================
+# ==============================================================================
+# 3. CARGA Y NORMALIZACIÓN DE BASES DE DATOS (GOOGLE SHEETS)
+# ==============================================================================
 @st.cache_data(ttl=5)
 def cargar_bases_web():
-    """Descarga datos de Sheets y unifica nombres de columnas para evitar errores de clave."""
+    """Descarga datos de Google Sheets y unifica nombres de columnas para evitar errores técnicos."""
     try:
         url_secreta = st.secrets["connections"]["gsheets"]["spreadsheet"]
         sheet_id = url_secreta.split("/d/")[1].split("/")[0] if "/d/" in url_secreta else url_secreta
         
+        # Generar URLs de descarga directa CSV
         u_cli = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Consultantes"
         u_prog = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Informes_Programados"
         u_tipos = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Informes_Tipo"
         
         df_c = pd.read_csv(u_cli).dropna(how="all")
         df_p = pd.read_csv(u_prog).dropna(how="all")
-        try: df_t = pd.read_csv(u_tipos).dropna(how="all")
-        except Exception: df_t = pd.DataFrame()
+        try:
+            df_t = pd.read_csv(u_tipos).dropna(how="all")
+        except Exception:
+            df_t = pd.DataFrame()
 
+        # Proceso de normalización de columnas (Previene KeyError)
         for df in [df_c, df_p, df_t]:
             if not df.empty:
                 df.columns = df.columns.str.strip()
-                # Unificación de ID para evitar KeyError
-                for col_name in ['id', 'Id', 'ID', 'ID_CONSULTANTE', 'id_cli']:
+                # Buscar cualquier variante de Identificador y normalizar a 'id_consultante'
+                variantes_id = ['id', 'Id', 'ID', 'ID_CONSULTANTE', 'id_cli', 'IDENTIFICADOR']
+                for col_name in variantes_id:
                     if col_name in df.columns and 'id_consultante' not in df.columns:
                         df.rename(columns={col_name: 'id_consultante'}, inplace=True)
                 
@@ -128,49 +180,60 @@ def cargar_bases_web():
         
         return df_c, df_p, df_t
     except Exception as e:
-        st.sidebar.error(f"⚠️ Error de conexión a Sheets: {e}")
+        st.sidebar.error(f"⚠️ Error de conexión a la base de datos: {e}")
         return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
 
+# Ejecutar carga inicial
 df_cli, df_prog, df_tipos = cargar_bases_web()
 
-# ==========================================
-# 4. NAVEGACIÓN Y AUDITORÍA TÉCNICA
-# ==========================================
+# ==============================================================================
+# 4. NAVEGACIÓN Y PANEL DE AUDITORÍA TÉCNICA
+# ==============================================================================
 st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px;'>NAVEGACIÓN</p>", unsafe_allow_html=True)
-modo_app = st.sidebar.radio("Menu", ["⚙️ Taller de Informes", "📅 Programar Cliente"], label_visibility="collapsed")
+modo_app = st.sidebar.radio("Modo de trabajo", ["⚙️ Taller de Informes", "📅 Programar Cliente"], label_visibility="collapsed")
 st.sidebar.markdown("<hr/>", unsafe_allow_html=True)
 
-# VISOR DE AUDITORÍA TÉCNICA (EXACTAMENTE COMO EN VS CODE)
+# PANEL TÉCNICO: Permite ver los grados y minutos exactos que el motor está procesando
 if st.session_state.textos_generados:
     st.sidebar.markdown("### 🔍 Datos Técnicos Exactos")
-    st.sidebar.code(st.session_state.datos_diccionario.get('auditoria_tecnica', 'Sin datos técnicos disponibles'), language='text')
+    st.sidebar.info("Cálculos matemáticos usados para la interpretación:")
+    st.sidebar.code(st.session_state.datos_diccionario.get('auditoria_tecnica', 'Sin datos disponibles'), language='text')
     st.sidebar.markdown("<hr/>", unsafe_allow_html=True)
 
-# ==========================================
-# 5. MODO PROGRAMAR CLIENTE
-# ==========================================
+# ==============================================================================
+# 5. MODO: PROGRAMAR CLIENTE (AGENDAR)
+# ==============================================================================
 if modo_app == "📅 Programar Cliente":
     st.markdown("## 📅 Agenda de Clientes")
-    st.markdown("<p style='color: #B48E92;'>Organiza tu cola de trabajo desde aquí.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #B48E92; font-weight: 500;'>Organiza tu cola de trabajo agendando reportes para tus consultantes.</p>", unsafe_allow_html=True)
+    
     if not df_cli.empty:
         opciones_cli = [f"{row['Nombres']} (ID: {row['id_consultante']})" for _, row in df_cli.iterrows() if 'Nombres' in row]
         st.selectbox("1. Selecciona el Cliente:", opciones_cli)
-        st.selectbox("2. Tipo de Informe:", ["Carta Natal", "Tránsitos Anuales", "Revolución Solar"])
-        if st.button("➕ Programar", type="primary"):
-            st.info("Añade la fila en tu Google Sheet y recarga la página para procesarla.")
+        st.selectbox("2. Tipo de Informe a realizar:", ["Carta Natal", "Tránsitos Anuales", "Revolución Solar"])
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("➕ Registrar en Agenda", type="primary"):
+            st.info("Nota: En esta versión web, agrega la fila directamente en tu Google Sheet y presiona 'Refresh' en el navegador.")
+    else:
+        st.warning("No se detectaron consultantes en la base de datos. Revisa la pestaña 'Consultantes' en tu Sheets.")
 
-# ==========================================
-# 6. MODO TALLER DE INFORMES (LÓGICA PRINCIPAL)
-# ==========================================
+# ==============================================================================
+# 6. MODO: TALLER DE INFORMES (PROCESAMIENTO Y EDICIÓN)
+# ==============================================================================
 elif modo_app == "⚙️ Taller de Informes":
     if not st.session_state.textos_generados:
         st.markdown("## ⚙️ Taller de Informes")
-        st.markdown("<p style='color: #B48E92;'>Procesa efemérides y genera la base interpretativa profesional.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #B48E92; font-weight: 500;'>Procesa efemérides en tiempo real y genera borradores interpretativos de alto impacto evolutivo.</p>", unsafe_allow_html=True)
 
-    pendientes = df_prog[df_prog['Estado'].astype(str).str.upper() == 'PENDIENTE'] if not df_prog.empty and 'Estado' in df_prog.columns else pd.DataFrame()
+    # Filtrar informes con estado PENDIENTE
+    if not df_prog.empty and 'Estado' in df_prog.columns:
+        pendientes = df_prog[df_prog['Estado'].astype(str).str.upper() == 'PENDIENTE']
+    else:
+        pendientes = pd.DataFrame()
 
     if pendientes.empty and not st.session_state.textos_generados:
-        st.sidebar.success("✅ ¡Agenda limpia!")
+        st.sidebar.success("✅ ¡Cola de trabajo vacía! Todo ha sido procesado.")
     elif not pendientes.empty:
         st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700;'>PENDIENTES</p>", unsafe_allow_html=True)
         opciones_menu = []
@@ -179,49 +242,54 @@ elif modo_app == "⚙️ Taller de Informes":
                 id_c = str(row['id_consultante']).strip()
                 cli_data = df_cli[df_cli['id_consultante'] == id_c] if not df_cli.empty else pd.DataFrame()
                 nombre = cli_data.iloc[0].get('Nombres', 'Consultante') if not cli_data.empty else "ID " + id_c
-                # Detectar tipo para mostrar en el menú
-                id_tipo_rep = str(row.get('Id_Informe', '1')).replace('.0', '').strip()
-                tipo_txt = "Natal" if id_tipo_rep == "1" else "Transitos" if id_tipo_rep == "2" else "Revolucion"
+                # Determinar nombre del informe
+                id_inf = str(row.get('Id_Informe', '1')).replace('.0', '').strip()
+                tipo_txt = "Natal" if id_inf == "1" else "Transitos" if id_inf == "2" else "Revolucion"
                 opciones_menu.append(f"{nombre} ({tipo_txt}) | Fila: {idx}")
 
         if opciones_menu:
-            sel_p = st.sidebar.selectbox("Elegir Pendiente:", opciones_menu, label_visibility="collapsed")
+            sel_p = st.sidebar.selectbox("Selecciona el informe a procesar:", opciones_menu, label_visibility="collapsed")
             idx_p = int(sel_p.split("Fila: ")[1])
             row_p = pendientes.loc[idx_p]
             id_sel = str(row_p['id_consultante'])
             cli_obj = df_cli[df_cli['id_consultante'] == id_sel].iloc[0]
+            
+            # Detectar si el reporte es Revolución Solar (ID: 3)
             id_t = str(row_p.get('Id_Informe', '1')).replace('.0', '').strip()
 
-            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (RECUPERADO) ---
+            # --- BUSCADOR DE COORDENADAS PARA RELOCALIZACIÓN RS (REINTEGRADO Y VISIBLE) ---
             lat_rs, lon_rs, lug_final = None, None, ""
             if id_t == "3" or "Revolucion" in sel_p: 
                 st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
-                st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px; margin-bottom:0;'>📍 RELOCALIZACIÓN RS</p>", unsafe_allow_html=True)
-                lug_rs_input = st.sidebar.text_input("Ciudad de la Revolución:", placeholder="Ej: Madrid, España")
+                st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px; margin-bottom:0;'>📍 RELOCALIZACIÓN REVOLUCIÓN SOLAR</p>", unsafe_allow_html=True)
+                st.sidebar.caption("Busca la ciudad donde el consultante pasará su cumpleaños.")
                 
-                if st.sidebar.button("🔍 Buscar en Mapa", use_container_width=True):
+                lug_rs_input = st.sidebar.text_input("Ciudad de Relocalización:", placeholder="Ej: Madrid, España", key="ciudad_rs_search")
+                
+                if st.sidebar.button("🔍 Buscar Coordenadas en Mapa", use_container_width=True):
                     if lug_rs_input:
-                        with st.spinner("Buscando coordenadas..."):
+                        with st.spinner("Conectando con el servidor de mapas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astroimpacto_final_v_final")
-                                loc = geolocator.geocode(lug_rs_input)
-                                if loc:
-                                    st.session_state.lat_rs_auto = str(loc.latitude)
-                                    st.session_state.lon_rs_auto = str(loc.longitude)
-                                    st.session_state.lugar_rs_confirmado = loc.address
-                                    st.sidebar.success(f"Listo: {loc.address}")
+                                geolocator = Nominatim(user_agent="astroimpacto_premium_v1")
+                                location = geolocator.geocode(lug_rs_input)
+                                if location:
+                                    st.session_state.lat_rs_auto = str(location.latitude)
+                                    st.session_state.lon_rs_auto = str(location.longitude)
+                                    st.session_state.lugar_rs_confirmado = location.address
+                                    st.sidebar.success(f"Ubicación confirmada: {location.address}")
                                 else:
-                                    st.sidebar.error("Lugar no encontrado.")
+                                    st.sidebar.error("No se encontró el lugar. Intenta agregar el País.")
                             except Exception:
-                                st.sidebar.error("Error de conexión con el mapa.")
+                                st.sidebar.error("Error temporal de conexión con el mapa.")
                 
                 lat_rs = st.sidebar.text_input("Latitud:", value=st.session_state.lat_rs_auto)
                 lon_rs = st.sidebar.text_input("Longitud:", value=st.session_state.lon_rs_auto)
                 lug_final = st.session_state.lugar_rs_confirmado if st.session_state.lugar_rs_confirmado else lug_rs_input
-            # --------------------------------------------------------------------
+            # --------------------------------------------------------------------------------
 
-            if st.sidebar.button("🚀 PROCESAR INFORME", type="primary", use_container_width=True):
-                with st.spinner("Calculando efemérides y redactando interpretación..."):
+            st.sidebar.markdown("<br>", unsafe_allow_html=True)
+            if st.sidebar.button("🚀 INICIAR PROCESAMIENTO", type="primary", use_container_width=True):
+                with st.spinner("El motor astrológico está calculando posiciones y redactando interpretaciones..."):
                     try:
                         if id_t == "2":
                             st.session_state.tipo_reporte_actual = "TRANSITOS"
@@ -237,114 +305,137 @@ elif modo_app == "⚙️ Taller de Informes":
                             st.session_state.update({'datos_diccionario': datos, 'plantilla_usar': plant, 'textos_generados': True, 'idx_prog_actual': idx_p})
                             st.rerun()
                         else:
-                            st.sidebar.error("El motor no devolvió resultados.")
+                            st.sidebar.error("⚠️ El motor no devolvió resultados válidos. Revisa la conexión con la IA.")
                     except Exception as e:
-                        st.sidebar.error(f"Error procesando: {e}")
+                        st.sidebar.error(f"❌ Error crítico en el procesamiento: {e}")
 
-    # ==========================================
-    # 7. PANEL DE EDICIÓN COMPLETO (INTEGRIDAD)
-    # ==========================================
+    # ==============================================================================
+    # 7. PANEL DE EDICIÓN INTEGRAL (TODAS LAS SECCIONES DETALLADAS)
+    # ==============================================================================
     if st.session_state.textos_generados:
         d = st.session_state.datos_diccionario
         tipo = st.session_state.tipo_reporte_actual
         st.subheader(f"Editando: {d.get('titulo_informe')} - {d.get('nombre_cliente')}")
-        st.info("Revisa y personaliza los textos antes de generar el informe final.")
+        st.markdown("<p style='font-size:0.9rem; color: #666;'>Personaliza cada sección del informe generado automáticamente.</p>", unsafe_allow_html=True)
 
-        # --- SECCIONES REVOLUCIÓN SOLAR ---
+        # ---------------------------------------------------------
+        # BLOQUE DE EDICIÓN: REVOLUCIÓN SOLAR
+        # ---------------------------------------------------------
         if tipo == "REVOLUCION":
-            with st.expander("1. Infografía (Cuadros de Perspectiva)", expanded=False):
-                col1, col2 = st.columns(2)
-                with col1:
-                    d['perspectivas']['transformacion'] = st.text_area("Reto de Transformación", d['perspectivas'].get('transformacion', ''), height=100)
-                    d['perspectivas']['cambio'] = st.text_area("Área de Cambio Principal", d['perspectivas'].get('cambio', ''), height=100)
-                with col2:
-                    d['perspectivas']['oportunidades'] = st.text_area("Mayores Oportunidades", d['perspectivas'].get('oportunidades', ''), height=100)
-                    d['perspectivas']['relaciones'] = st.text_area("Clima Vincular", d['perspectivas'].get('relaciones', ''), height=100)
+            with st.expander("1. Infografía Inicial (Cuadros de Síntesis)", expanded=False):
+                c1, c2 = st.columns(2)
+                with c1:
+                    d['perspectivas']['transformacion'] = st.text_area("El Gran Reto de Transformación Anual", d['perspectivas'].get('transformacion', ''), height=100)
+                    d['perspectivas']['cambio'] = st.text_area("Área donde se sentirá el Cambio Principal", d['perspectivas'].get('cambio', ''), height=100)
+                with c2:
+                    d['perspectivas']['oportunidades'] = st.text_area("Mayores Oportunidades de Crecimiento", d['perspectivas'].get('oportunidades', ''), height=100)
+                    d['perspectivas']['relaciones'] = st.text_area("Tónica del Clima Vincular y Social", d['perspectivas'].get('relaciones', ''), height=100)
             
-            with st.expander("2. Introducción y Bases (Natal/Transitos/Prog)", expanded=False):
-                d['intro_texto'] = st.text_area("Introducción al Informe", d.get('intro_texto',''), height=100)
-                d['carta_natal_resumen'] = st.text_area("Resumen de Esencia Natal", d.get('carta_natal_resumen',''), height=150)
-                d['transitos_personales'] = st.text_area("Análisis de Tránsitos Lentos", d.get('transitos_personales',''), height=150)
-                d['progresiones_secundarias'] = st.text_area("Estado Interior (Progresiones)", d.get('progresiones_secundarias',''), height=150)
-                d['como_actuar_progresiones'] = st.text_area("Consejos de Progresiones (Separar con líneas)", "\n".join(d.get('como_actuar_progresiones', []))).split("\n")
+            with st.expander("2. Introducción y Análisis de Base (Natal / Tránsitos / Progresiones)", expanded=False):
+                d['intro_texto'] = st.text_area("Texto de Introducción Cálida", d.get('intro_texto',''), height=100)
+                d['carta_natal_resumen'] = st.text_area("Resumen Psicológico de la Carta Natal", d.get('carta_natal_resumen',''), height=150)
+                d['transitos_personales'] = st.text_area("Análisis de Tránsitos Planetarios Lentos", d.get('transitos_personales',''), height=150)
+                d['progresiones_secundarias'] = st.text_area("Interpretación de Progresiones y Estado Interior", d.get('progresiones_secundarias',''), height=150)
+                tips_p = st.text_area("Consejos para las Progresiones (Uno por línea)", "\n".join(d.get('como_actuar_progresiones', [])))
+                d['como_actuar_progresiones'] = tips_p.split("\n")
 
-            with st.expander("3. Revolución Solar (General y Profesional)", expanded=True):
-                d['revolucion_solar_general_1'] = st.text_area("Interpretación General RS", d.get('revolucion_solar_general_1',''), height=250)
-                d['revo_propone'] = st.text_area("Propuestas del Año (Separar con líneas)", "\n".join(d.get('revo_propone', []))).split("\n")
-                d['situacion_laboral_economica'] = st.text_area("Panorama Laboral", d.get('situacion_laboral_economica',''), height=150)
-                d['logro_objetivos_profesionales'] = st.text_area("Objetivos Profesionales (Separar con líneas)", "\n".join(d.get('logro_objetivos_profesionales', []))).split("\n")
+            with st.expander("3. Revolución Solar (Clima General y Área Profesional)", expanded=True):
+                d['revolucion_solar_general_1'] = st.text_area("Interpretación del Clima General de la Revolución", d.get('revolucion_solar_general_1',''), height=250)
+                propuestas = st.text_area("Propuestas Evolutivas del Año (Uno por línea)", "\n".join(d.get('revo_propone', [])))
+                d['revo_propone'] = propuestas.split("\n")
+                d['situacion_laboral_economica'] = st.text_area("Panorama Laboral, Económico y de Vocación", d.get('situacion_laboral_economica',''), height=180)
+                objs = st.text_area("Objetivos Profesionales a seguir (Uno por línea)", "\n".join(d.get('logro_objetivos_profesionales', [])))
+                d['logro_objetivos_profesionales'] = objs.split("\n")
 
-            with st.expander("4. Emocional, Trimestral y Cierre", expanded=True):
-                d['situacion_emocional'] = st.text_area("Situación Afectiva", d.get('situacion_emocional',''), height=150)
-                st.markdown("**Panorama Trimestral:**")
-                for i, t in enumerate(d.get('panorama_trimestral', [])):
-                    t['texto'] = st.text_area(f"📍 {t.get('titulo', 'Trimestre')}", t.get('texto', ''), key=f"t_{i}", height=120)
-                d['plan_accion_objetivos'] = st.text_area("Plan de Acción Final (Separar con líneas)", "\n".join(d.get('plan_accion_objetivos', []))).split("\n")
+            with st.expander("4. Clima Emocional y Panorama Trimestral", expanded=True):
+                d['situacion_emocional'] = st.text_area("Análisis de la Vida Emocional y Afectiva", d.get('situacion_emocional',''), height=180)
+                st.markdown("**Cronograma Anual de Proyección:**")
+                if 'panorama_trimestral' in d:
+                    for i, t in enumerate(d.get('panorama_trimestral', [])):
+                        t['texto'] = st.text_area(f"📍 {t.get('titulo', 'Periodo')}", t.get('texto', ''), key=f"rs_t_{i}", height=120)
+                plan = st.text_area("Plan de Acción y Objetivos Finales (Uno por línea)", "\n".join(d.get('plan_accion_objetivos', [])))
+                d['plan_accion_objetivos'] = plan.split("\n")
 
-        # --- SECCIONES TRÁNSITOS ANUALES ---
+        # ---------------------------------------------------------
+        # BLOQUE DE EDICIÓN: TRÁNSITOS ANUALES
+        # ---------------------------------------------------------
         elif tipo == "TRANSITOS":
-            with st.expander("1. Energía Base", expanded=False):
-                d['interpretacion_sol_signo'] = st.text_area("Sol Natal", d.get('interpretacion_sol_signo',''), height=100)
-                d['interpretacion_luna_signo'] = st.text_area("Luna Natal", d.get('interpretacion_luna_signo',''), height=100)
-                d['interpretacion_asc_signo'] = st.text_area("Ascendente Natal", d.get('interpretacion_asc_signo',''), height=100)
+            with st.expander("1. Energía Base del Consultante", expanded=False):
+                d['interpretacion_sol_signo'] = st.text_area("Interpretación Natal del Sol", d.get('interpretacion_sol_signo',''), height=100)
+                d['interpretacion_luna_signo'] = st.text_area("Interpretación Natal de la Luna", d.get('interpretacion_luna_signo',''), height=100)
+                d['interpretacion_asc_signo'] = st.text_area("Interpretación Natal del Ascendente", d.get('interpretacion_asc_signo',''), height=100)
             
-            with st.expander("2. Análisis del Clima Anual", expanded=True):
-                d['frase_anual_corta'] = st.text_input("Lema Inspirador del Año", d.get('frase_anual_corta',''))
-                d['analisis_clima_anual'] = st.text_area("Interpretación General Evolutiva", d.get('analisis_clima_anual',''), height=300)
-                d['oportunidad_anual'] = st.text_area("Gran Oportunidad", d.get('oportunidad_anual',''), height=120)
-                d['atencion_anual'] = st.text_area("Punto de Atención", d.get('atencion_anual',''), height=120)
+            with st.expander("2. Análisis del Clima Astrológico Anual", expanded=True):
+                d['frase_anual_corta'] = st.text_input("Lema Inspirador del Año (Título)", d.get('frase_anual_corta',''))
+                d['analisis_clima_anual'] = st.text_area("Visión General Evolutiva para los 12 meses", d.get('analisis_clima_anual',''), height=300)
+                d['oportunidad_anual'] = st.text_area("La Mayor Oportunidad del Ciclo", d.get('oportunidad_anual',''), height=120)
+                d['atencion_anual'] = st.text_area("Área de Cuidado y Atención Crítica", d.get('atencion_anual',''), height=120)
 
-            with st.expander("3. Calendario Mensual de Eventos", expanded=True):
+            with st.expander("3. Calendario Detallado de Eventos Mensuales", expanded=True):
+                st.markdown("<p style='color: #666;'>Edita los tránsitos específicos para cada mes:</p>", unsafe_allow_html=True)
                 for mes, eventos in d.get('calendario_por_meses', {}).items():
                     st.markdown(f"### 🗓️ {mes}")
                     for ev in eventos:
-                        label = f"{ev.get('fecha', '')} | {ev.get('transito', '')} {ev.get('aspecto', '')} {ev.get('natal', '')}"
+                        label = f"{ev.get('fecha', '')} | {ev.get('transito', '')} {ev.get('aspecto', '')} a {ev.get('natal', '')}"
                         ev['texto_efecto'] = st.text_area(label, ev.get('texto_efecto', ''), key=f"tr_{mes}_{ev.get('fecha','')}", height=100)
 
-        # --- SECCIONES CARTA NATAL ---
+        # ---------------------------------------------------------
+        # BLOQUE DE EDICIÓN: CARTA NATAL
+        # ---------------------------------------------------------
         else:
-            with st.expander("1. Tríada Sagrada (Sol, Luna y AC)", expanded=True):
-                d['interpretacion_sol_signo'] = st.text_area("☉ Propósito Solar", d.get('interpretacion_sol_signo',''), height=150)
-                d['interpretacion_luna_signo'] = st.text_area("☽ Refugio Lunar", d.get('interpretacion_luna_signo',''), height=150)
-                d['interpretacion_asc_signo'] = st.text_area("AC Camino del Ascendente", d.get('interpretacion_asc_signo',''), height=150)
+            with st.expander("1. Tríada Sagrada de Identidad (Sol, Luna y AC)", expanded=True):
+                d['interpretacion_sol_signo'] = st.text_area("☉ El Propósito Solar", d.get('interpretacion_sol_signo',''), height=150)
+                d['interpretacion_luna_signo'] = st.text_area("☽ El Refugio y Mecanismo Lunar", d.get('interpretacion_luna_signo',''), height=150)
+                d['interpretacion_asc_signo'] = st.text_area("AC El Camino de Integración del Ascendente", d.get('interpretacion_asc_signo',''), height=150)
             
-            with st.expander("2. Gigantes del Cielo", expanded=False):
+            with st.expander("2. Análisis de los Gigantes del Cielo", expanded=False):
                 if 'gigantes_del_cielo' in d:
                     for i, g in enumerate(d.get('gigantes_del_cielo', [])):
-                        g['texto'] = st.text_area(f"{g.get('nombre', 'Planeta')}", g.get('texto', ''), key=f"g_{i}", height=100)
+                        g['texto'] = st.text_area(f"{g.get('nombre', 'Cuerpo Planetario')} en {g.get('signo', '')}", g.get('texto', ''), key=f"natal_g_{i}", height=100)
 
-            with st.expander("3. Síntesis Evolutiva Global", expanded=True):
-                d['interpretacion_personalidad_global'] = st.text_area("Relato Final de Identidad", d.get('interpretacion_personalidad_global',''), height=350)
-                st.markdown("**Matriz FODA:**")
-                f_col1, f_col2 = st.columns(2)
-                with f_col1:
-                    d['foda']['fortalezas'] = st.text_area("Fortalezas", "\n".join(d['foda'].get('fortalezas', []))).split("\n")
-                with f_col2:
-                    d['foda']['debilidades'] = st.text_area("Debilidades", "\n".join(d['foda'].get('debilidades', []))).split("\n")
+            with st.expander("3. Síntesis Evolutiva y Matriz FODA", expanded=True):
+                d['interpretacion_personalidad_global'] = st.text_area("Relato Final de Integración de Personalidad", d.get('interpretacion_personalidad_global',''), height=350)
+                st.markdown("**Matriz de Potencial (FODA):**")
+                f_c1, f_c2 = st.columns(2)
+                with f_c1:
+                    f_input = st.text_area("Fortalezas (Una por línea)", "\n".join(d['foda'].get('fortalezas', [])))
+                    d['foda']['fortalezas'] = f_input.split("\n")
+                with f_c2:
+                    d_input = st.text_area("Debilidades (Una por línea)", "\n".join(d['foda'].get('debilidades', [])))
+                    d['foda']['debilidades'] = d_input.split("\n")
 
-        # 8. PANEL DE ACCIONES FINALES (DESCARGA Y VISTA PREVIA)
+        # ==============================================================================
+        # 8. PANEL DE ACCIONES FINALES (DESCARGA Y CIERRE)
+        # ==============================================================================
         st.divider()
         c_final1, c_final2 = st.columns(2)
+        
+        # Inyección de logo antes de renderizar
         d['logo_base64'] = get_base_64_of_bin_file('apple-icon.png')
-        env = Environment(loader=FileSystemLoader('.'))
+        env_jinja = Environment(loader=FileSystemLoader('.'))
         
         try:
-            plantilla_final = env.get_template(st.session_state.plantilla_usar)
+            plantilla_final = env_jinja.get_template(st.session_state.plantilla_usar)
+            
             with c_final1:
-                if st.button("👁️ VER VISTA PREVIA"):
+                if st.button("👁️ VER VISTA PREVIA DEL DISEÑO"):
                     try: 
                         html_render = plantilla_final.render(d)
                         components.html(html_render, height=900, scrolling=True)
-                    except Exception: 
-                        st.error("Error de renderizado.")
+                    except Exception as e: 
+                        st.error(f"Error de visualización: {e}")
 
             with c_final2:
                 html_final = plantilla_final.render(d)
-                nombre_doc = f"Informe_{d.get('nombre_cliente', 'Cliente')}.html"
-                st.download_button("💾 DESCARGAR INFORME HTML", data=html_final, file_name=nombre_doc, mime="text/html", type="primary")
-                if st.button("❌ FINALIZAR Y LIMPIAR"):
+                # Formatear nombre de archivo
+                suf = "Transitos" if tipo == "TRANSITOS" else "Revolucion" if tipo == "REVOLUCION" else "Natal"
+                nombre_doc = f"Informe_Astroimpacto_{d.get('nombre_cliente', 'Cliente')}_{suf}.html"
+                
+                st.download_button("💾 DESCARGAR INFORME HTML FINAL", data=html_final, file_name=nombre_doc, mime="text/html", type="primary")
+                
+                if st.button("❌ FINALIZAR Y LIMPIAR TALLER"):
                     st.session_state.textos_generados = False
                     st.rerun()
                     
         except Exception as e:
-            st.error(f"Error cargando la plantilla HTML: {e}")
+            st.error(f"Error cargando la plantilla de diseño: {e}")
