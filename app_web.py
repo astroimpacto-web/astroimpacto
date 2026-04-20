@@ -120,6 +120,11 @@ st.markdown("""
         white-space: normal !important;
         border-radius: 8px;
     }
+    
+    /* Alertas y Mensajes de Error */
+    .stAlert {
+        border-radius: 12px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -271,7 +276,7 @@ elif modo_app == "⚙️ Taller de Informes":
                     if lug_rs_input:
                         with st.spinner("Conectando con el servidor de mapas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astroimpacto_premium_v440")
+                                geolocator = Nominatim(user_agent="astroimpacto_premium_v445")
                                 loc = geolocator.geocode(lug_rs_input)
                                 if loc:
                                     st.session_state.lat_rs_auto = str(loc.latitude)
@@ -292,12 +297,14 @@ elif modo_app == "⚙️ Taller de Informes":
             if st.sidebar.button("🚀 INICIAR PROCESAMIENTO", type="primary", use_container_width=True):
                 with st.spinner("Calculando efemérides y redactando informe integral..."):
                     try:
+                        # Inicializamos variables para capturar el resultado del motor
+                        datos, plant = None, None
+                        
                         if id_t == "2":
                             st.session_state.tipo_reporte_actual = "TRANSITOS"
                             datos, plant = motor_web.procesar_transitos_con_ia(cli_obj, None, id_sel)
                         elif id_t == "3" or "Revolucion" in sel_p:
                             st.session_state.tipo_reporte_actual = "REVOLUCION"
-                            # Se pasa el lugar confirmado para que la IA sepa dónde relocalizar
                             datos, plant = motor_web.procesar_rs_con_ia(cli_obj, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
                         else:
                             st.session_state.tipo_reporte_actual = "NATAL"
@@ -307,12 +314,15 @@ elif modo_app == "⚙️ Taller de Informes":
                             st.session_state.update({'datos_diccionario': datos, 'plantilla_usar': plant, 'textos_generados': True, 'idx_prog_actual': idx_p})
                             st.rerun()
                         else:
-                            st.sidebar.error("⚠️ El motor no devolvió resultados. Revisa tu clave en Secrets.")
+                            # Aquí es donde mostramos el error real que viene del motor
+                            error_motor = plant if plant else "Sin respuesta del motor de IA."
+                            st.sidebar.error(f"⚠️ El motor falló: {error_motor}")
+                            st.sidebar.info("Consejo: Verifica que tu clave de OpenAI esté bien configurada en 'Secrets' de Streamlit.")
                     except Exception as e:
                         st.sidebar.error(f"❌ Error crítico en el procesamiento: {e}")
 
     # ==============================================================================
-    # 7. PANEL DE EDICIÓN INTEGRAL (INTEGRIDAD TOTAL - 440+ LÍNEAS)
+    # 7. PANEL DE EDICIÓN INTEGRAL (INTEGRIDAD TOTAL - 445+ LÍNEAS)
     # ==============================================================================
     if st.session_state.textos_generados:
         d = st.session_state.datos_diccionario
