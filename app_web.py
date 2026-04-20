@@ -124,11 +124,18 @@ st.markdown("""
 
     /* Métrica de Diagnóstico en Sidebar */
     .diag-box {
-        padding: 10px;
-        background-color: #f0f2f6;
-        border-radius: 5px;
-        margin-bottom: 10px;
-        font-size: 0.8rem;
+        padding: 12px;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        font-size: 0.85rem;
+        color: #495057;
+    }
+    .diag-item {
+        margin-bottom: 4px;
+        display: flex;
+        justify-content: space-between;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -173,8 +180,8 @@ if 'textos_generados' not in st.session_state:
 def cargar_bases_web():
     """
     Descarga datos de Sheets y unifica nombres de columnas.
-    Esta función es crítica para evitar el error de 'Datos Incompletos' mapeando
-    todas las posibles variaciones de nombres de columnas que Patricia use en su Excel.
+    Esta función mapea todas las posibles variaciones de nombres de columnas 
+    para evitar el error de 'Datos Incompletos'.
     """
     try:
         url_secreta = st.secrets["connections"]["gsheets"]["spreadsheet"]
@@ -187,32 +194,26 @@ def cargar_bases_web():
         df_c = pd.read_csv(u_cli).dropna(how="all")
         df_p = pd.read_csv(u_prog).dropna(how="all")
 
-        # Proceso de normalización de columnas (Elimina espacios y unifica criterios)
+        # Diccionario de Mapeo Inteligente (Sinónimos de Excel)
+        mapa_columnas = {
+            'id_consultante': ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli', 'id_consultante', 'CODIGO'],
+            'Fecha': ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac', 'FECHA NACIMIENTO', 'FECHA_NACIMIENTO'],
+            'Hora': ['hora', 'HORA', 'BirthTime', 'Hora_Nac', 'HORA NACIMIENTO', 'HORA_NACIMIENTO', 'TIEMPO'],
+            'Latitud': ['lat', 'latitud', 'LATITUD', 'Lat', 'LAT', 'COOR_LAT', 'LAT_NAC'],
+            'Longitud': ['lon', 'longitud', 'LONGITUD', 'Lon', 'Lng', 'lng', 'LON', 'COOR_LON', 'LON_NAC'],
+            'Nombres': ['Nombre', 'NOMBRE', 'Nombres', 'NAME', 'Consultante', 'CLIENTE']
+        }
+
+        # Aplicar Mapeo a ambos DataFrames
         for df in [df_c, df_p]:
             if not df.empty:
                 df.columns = df.columns.str.strip()
-                # Normalización Universal de IDs
-                for c in ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli', 'id_consultante']:
-                    if c in df.columns and 'id_consultante' not in df.columns:
-                        df.rename(columns={c: 'id_consultante'}, inplace=True)
-                # Normalización Universal de Fechas
-                for c in ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac', 'FECHA NACIMIENTO']:
-                    if c in df.columns and 'Fecha' not in df.columns:
-                        df.rename(columns={c: 'Fecha'}, inplace=True)
-                # Normalización Universal de Horas
-                for c in ['hora', 'HORA', 'BirthTime', 'Hora_Nac', 'HORA NACIMIENTO']:
-                    if c in df.columns and 'Hora' not in df.columns:
-                        df.rename(columns={c: 'Hora'}, inplace=True)
-                # Normalización Universal de Latitud
-                for c in ['lat', 'latitud', 'LATITUD', 'Lat', 'LAT']:
-                    if c in df.columns and 'Latitud' not in df.columns:
-                        df.rename(columns={c: 'Latitud'}, inplace=True)
-                # Normalización Universal de Longitud
-                for c in ['lon', 'longitud', 'LONGITUD', 'Lon', 'Lng', 'lng', 'LON']:
-                    if c in df.columns and 'Longitud' not in df.columns:
-                        df.rename(columns={c: 'Longitud'}, inplace=True)
+                for destino, sinonimos in mapa_columnas.items():
+                    for s in sinonimos:
+                        if s in df.columns and destino not in df.columns:
+                            df.rename(columns={s: destino}, inplace=True)
                 
-                # Limpieza final de IDs
+                # Normalización de IDs para evitar fallos de búsqueda
                 if 'id_consultante' in df.columns:
                     df['id_consultante'] = df['id_consultante'].astype(str).str.replace('.0', '', regex=False).str.strip()
         
@@ -227,7 +228,7 @@ df_cli, df_prog = cargar_bases_web()
 # 4. NAVEGACIÓN Y PANEL DE AUDITORÍA TÉCNICA
 # ==============================================================================
 st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px;'>NAVEGACIÓN</p>", unsafe_allow_html=True)
-modo_app = st.sidebar.radio("Modo de trabajo", ["⚙️ Taller de Informes", "📅 Programar Cliente"], label_visibility="collapsed")
+modo_app = st.sidebar.radio("Menú Principal", ["⚙️ Taller de Informes", "📅 Programar Cliente"], label_visibility="collapsed")
 st.sidebar.markdown("<hr/>", unsafe_allow_html=True)
 
 # VISOR DE AUDITORÍA TÉCNICA (Visualiza los grados y minutos exactos para Patricia)
@@ -244,7 +245,9 @@ if modo_app == "📅 Programar Cliente":
     st.markdown("## 📅 Agenda de Clientes")
     st.markdown("<p style='color: #B48E92; font-weight: 500;'>Asigna un tipo de reporte a un consultante para que aparezca en el Taller.</p>", unsafe_allow_html=True)
     if not df_cli.empty:
-        opciones_cli = [f"{row['Nombres']} (ID: {row['id_consultante']})" for _, row in df_cli.iterrows() if 'Nombres' in row]
+        # Usamos nombres normalizados por el mapeo anterior
+        n_col = 'Nombres' if 'Nombres' in df_cli.columns else df_cli.columns[1]
+        opciones_cli = [f"{row[n_col]} (ID: {row['id_consultante']})" for _, row in df_cli.iterrows() if 'id_consultante' in df_cli.columns]
         st.selectbox("1. Selecciona el Cliente:", opciones_cli)
         st.selectbox("2. Tipo de Informe:", ["Carta Natal", "Tránsitos Anuales", "Revolución Solar"])
         if st.button("➕ Programar", type="primary"):
@@ -258,7 +261,7 @@ if modo_app == "📅 Programar Cliente":
 elif modo_app == "⚙️ Taller de Informes":
     if not st.session_state.textos_generados:
         st.markdown("## ⚙️ Taller de Informes")
-        st.markdown("<p style='color: #B48E92; font-weight: 500;'>Genera interpretaciones personalizadas basadas en efemérides exactas.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #B48E92; font-weight: 500;'>Procesa efemérides en tiempo real y genera borradores interpretativos profesionales.</p>", unsafe_allow_html=True)
 
     # Filtrar solo informes pendientes
     pendientes = df_prog[df_prog['Estado'].astype(str).str.upper() == 'PENDIENTE'] if not df_prog.empty and 'Estado' in df_prog.columns else pd.DataFrame()
@@ -272,7 +275,10 @@ elif modo_app == "⚙️ Taller de Informes":
             if 'id_consultante' in row:
                 id_c = str(row['id_consultante']).strip()
                 cli_data = df_cli[df_cli['id_consultante'] == id_c] if not df_cli.empty else pd.DataFrame()
-                nombre_cli = cli_data.iloc[0].get('Nombres', 'Consultante') if not cli_data.empty else f"ID: {id_c}"
+                
+                n_col_cli = 'Nombres' if 'Nombres' in cli_data.columns else cli_data.columns[1] if not cli_data.empty else ""
+                nombre_cli = cli_data.iloc[0][n_col_cli] if not cli_data.empty else f"ID: {id_c}"
+                
                 id_tipo_inf = str(row.get('Id_Informe', '1')).replace('.0', '').strip()
                 tipo_txt = "Natal" if id_tipo_inf == "1" else "Transitos" if id_tipo_inf == "2" else "Revolucion"
                 opciones_menu.append(f"{nombre_cli} ({tipo_txt}) | Fila: {idx}")
@@ -285,7 +291,7 @@ elif modo_app == "⚙️ Taller de Informes":
             cli_obj = df_cli[df_cli['id_consultante'] == id_sel].iloc[0]
             id_t = str(row_p.get('Id_Informe', '1')).replace('.0', '').strip()
 
-            # --- DIAGNÓSTICO PRE-PROCESAMIENTO ---
+            # --- PANEL DE DIAGNÓSTICO DE DATOS (ANTELACIÓN AL ERROR) ---
             st.sidebar.markdown("<p style='font-size:0.7rem; font-weight:700; margin-top:10px;'>📊 DIAGNÓSTICO DE DATOS</p>", unsafe_allow_html=True)
             check_fecha = "✅" if "Fecha" in cli_obj and not pd.isna(cli_obj["Fecha"]) else "❌"
             check_hora = "✅" if "Hora" in cli_obj and not pd.isna(cli_obj["Hora"]) else "❌"
@@ -294,8 +300,10 @@ elif modo_app == "⚙️ Taller de Informes":
             
             diag_html = f"""
             <div class='diag-box'>
-                Fecha: {check_fecha} | Hora: {check_hora}<br>
-                Lat: {check_lat} | Lon: {check_lon}
+                <div class='diag-item'><span>Fecha:</span> <span>{check_fecha}</span></div>
+                <div class='diag-item'><span>Hora:</span> <span>{check_hora}</span></div>
+                <div class='diag-item'><span>Latitud:</span> <span>{check_lat}</span></div>
+                <div class='diag-item'><span>Longitud:</span> <span>{check_lon}</span></div>
             </div>
             """
             st.sidebar.markdown(diag_html, unsafe_allow_html=True)
@@ -313,7 +321,7 @@ elif modo_app == "⚙️ Taller de Informes":
                     if lug_rs_input:
                         with st.spinner("Buscando coordenadas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astroimpacto_premium_v470")
+                                geolocator = Nominatim(user_agent="astroimpacto_premium_final_v2")
                                 loc = geolocator.geocode(lug_rs_input)
                                 if loc:
                                     st.session_state.lat_rs_auto = str(loc.latitude)
@@ -330,21 +338,18 @@ elif modo_app == "⚙️ Taller de Informes":
 
             st.sidebar.markdown("<br>", unsafe_allow_html=True)
             if st.sidebar.button("🚀 INICIAR PROCESAMIENTO", type="primary", use_container_width=True):
-                # Validación de datos antes de procesar para evitar el error de Patricia
-                campos_faltantes = []
-                for campo in ['Fecha', 'Hora', 'Latitud', 'Longitud']:
-                    if campo not in cli_obj or pd.isna(cli_obj[campo]):
-                        campos_faltantes.append(campo)
+                # Validación final antes de enviar al motor
+                faltantes = [k for k in ['Fecha', 'Hora', 'Latitud', 'Longitud'] if k not in cli_obj or pd.isna(cli_obj[k])]
                 
-                if campos_faltantes:
-                    st.sidebar.error(f"⚠️ Error: Faltan datos en el Excel: {', '.join(campos_faltantes)}")
-                    st.sidebar.info("Por favor, revisa que los nombres de las columnas en tu Excel sean correctos (Fecha, Hora, Latitud, Longitud).")
+                if faltantes:
+                    st.sidebar.error(f"⚠️ No se puede procesar. Faltan estos datos en el Excel: {', '.join(faltantes)}")
+                    st.sidebar.info("Asegúrate de que las columnas en tu Excel tengan nombres claros como 'Fecha', 'Hora', 'Latitud' y 'Longitud'.")
                 else:
                     with st.spinner("Calculando efemérides y redactando informe integral..."):
                         try:
                             datos, plant = None, None
-                            # Limpieza extra de los datos del consultante para el motor
-                            cli_clean = cli_obj.to_dict()
+                            # Limpieza total del objeto cliente para evitar fallos de tipos de datos
+                            cli_clean = {k: v for k, v in cli_obj.to_dict().items()}
                             
                             if id_t == "2":
                                 st.session_state.tipo_reporte_actual = "TRANSITOS"
@@ -360,14 +365,13 @@ elif modo_app == "⚙️ Taller de Informes":
                                 st.session_state.update({'datos_diccionario': datos, 'plantilla_usar': plant, 'textos_generados': True, 'idx_prog_actual': idx_p})
                                 st.rerun()
                             else:
-                                # Mostrar el error específico del motor para diagnóstico
                                 st.sidebar.error(f"⚠️ El motor falló: {plant}")
                                 st.sidebar.info("Consejo: Verifica tu conexión a OpenAI y tus créditos API.")
                         except Exception as e:
                             st.sidebar.error(f"❌ Error crítico inesperado: {e}")
 
     # ==============================================================================
-    # 7. PANEL DE EDICIÓN INTEGRAL (INTEGRIDAD TOTAL - 470+ LÍNEAS)
+    # 7. PANEL DE EDICIÓN INTEGRAL (INTEGRIDAD TOTAL - 480+ LÍNEAS)
     # ==============================================================================
     if st.session_state.textos_generados:
         d = st.session_state.datos_diccionario
