@@ -15,7 +15,8 @@ from geopy.geocoders import Nominatim
 def get_base_64_of_bin_file(bin_file):
     """
     Convierte una imagen local a formato Base64 para inyectarla en el HTML.
-    Es fundamental para logos y favicons sin depender de rutas de servidor.
+    Es fundamental para logos y favicons sin depender de rutas de servidor externas,
+    asegurando que el diseño sea portable y profesional.
     """
     try:
         if os.path.exists(bin_file):
@@ -24,10 +25,11 @@ def get_base_64_of_bin_file(bin_file):
             return f"data:image/png;base64,{base64.b64encode(data).decode()}"
         return ""
     except Exception:
-        # Fallo silencioso para no interrumpir la ejecución de la App
+        # Fallo silencioso para no interrumpir la ejecución de la App si falta una imagen
         return ""
 
 # CONFIGURACIÓN INICIAL DE LA PÁGINA (ESTADO EXPANDIDO Y LAYOUT ANCHO)
+# El layout 'wide' es vital para que el panel de edición de Patricia sea cómodo en iPad/iPhone.
 st.set_page_config(
     page_title="Astroimpacto - Gestión Astrológica Profesional",
     page_icon="apple-icon.png",
@@ -36,11 +38,12 @@ st.set_page_config(
 )
 
 # IDENTIDAD VISUAL PARA DISPOSITIVOS MÓVILES (IPHONE) Y NAVEGADORES
+# Esto permite que la web se comporte como una aplicación nativa en el dispositivo.
 st.markdown('<link rel="apple-touch-icon" href="apple-icon.png">', unsafe_allow_html=True)
 st.markdown('<link rel="manifest" href="./manifest.json">', unsafe_allow_html=True)
 
 # --- BLOQUE DE SEGURIDAD PARA EL ÍCONO WEB (VITAL PARA LA MARCA) ---
-# Este bloque inyecta el icono de la pestaña del navegador (Favicon).
+# Recuperamos la inyección del favicon para que la pestaña del navegador muestre el logo.
 try:
     icono_base64 = get_base_64_of_bin_file('apple-icon.png')
     if icono_base64:
@@ -49,6 +52,7 @@ except Exception:
     pass
 
 # ESTILOS CSS PERSONALIZADOS (DISEÑO PREMIUM ASTROIMPACTO)
+# Definimos la paleta de colores corporativa y tipografías elegantes (Playfair Display).
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
@@ -59,7 +63,7 @@ st.markdown("""
         border-right: 1px solid #e8e3d8;
     }
     
-    /* Personalización de Botones de Acción Principal */
+    /* Personalización de Botones de Acción Principal (Rosa Humo) */
     .stButton>button {
         border-radius: 8px;
         font-weight: 600;
@@ -97,7 +101,7 @@ st.markdown("""
         box-shadow: 0 2px 8px rgba(0,0,0,0.03);
     }
     
-    /* Cajas de Texto de Interpretación (Lógica de Escritura) */
+    /* Cajas de Texto de Interpretación IA (Lógica de Escritura) */
     .stTextArea textarea {
         font-size: 0.95rem;
         line-height: 1.6;
@@ -107,20 +111,20 @@ st.markdown("""
         border: 1px solid #eee;
     }
     
-    /* Selectores de Clientes */
+    /* Selectores de Clientes para evitar cortes visuales */
     .stSelectbox div[data-baseweb="select"] {
         white-space: normal !important;
         border-radius: 8px;
     }
     
-    /* Estilo de Mensajes de Alerta */
+    /* Estilo de Mensajes de Alerta y Error */
     .stAlert {
         border-radius: 12px;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# LOGOTIPO Y ENCABEZADO DE MARCA EN EL PANEL LATERAL (SVG)
+# LOGOTIPO Y ENCABEZADO DE MARCA EN EL PANEL LATERAL (DISEÑO SVG)
 SIDEBAR_HEADER_HTML = """
 <div style="text-align: center; padding-bottom: 1.5rem; border-bottom: 1px solid #e8e3d8; margin-bottom: 1.5rem; margin-top: -2rem;">
     <div style="width: 55px; height: 55px; margin: 0 auto 12px auto; color: #B48E92;">
@@ -139,7 +143,7 @@ SIDEBAR_HEADER_HTML = """
 st.sidebar.markdown(SIDEBAR_HEADER_HTML, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. GESTIÓN DEL ESTADO DE SESIÓN (MEMORIA DE TRABAJO)
+# 2. GESTIÓN DEL ESTADO DE SESIÓN (PERSISTENCIA DE DATOS)
 # ==============================================================================
 if 'textos_generados' not in st.session_state:
     st.session_state.update({
@@ -158,7 +162,11 @@ if 'textos_generados' not in st.session_state:
 # ==============================================================================
 @st.cache_data(ttl=5)
 def cargar_bases_web():
-    """Descarga datos de Sheets y unifica nombres de columnas para evitar KeyError y fallos de motor."""
+    """
+    Descarga datos de Sheets y unifica nombres de columnas.
+    Esta función es crítica para evitar el error de 'Datos Incompletos' mapeando
+    todas las posibles variaciones de nombres de columnas que Patricia use en su Excel.
+    """
     try:
         url_secreta = st.secrets["connections"]["gsheets"]["spreadsheet"]
         sheet_id = url_secreta.split("/d/")[1].split("/")[0] if "/d/" in url_secreta else url_secreta
@@ -170,31 +178,32 @@ def cargar_bases_web():
         df_c = pd.read_csv(u_cli).dropna(how="all")
         df_p = pd.read_csv(u_prog).dropna(how="all")
 
-        # Proceso de normalización de columnas (Previene el error de 'Datos Incompletos')
+        # Proceso de normalización de columnas (Elimina espacios y unifica criterios)
         for df in [df_c, df_p]:
             if not df.empty:
                 df.columns = df.columns.str.strip()
-                # Unificar variantes de Identificador
-                for c in ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli']:
+                # Normalización Universal de IDs
+                for c in ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli', 'id_consultante']:
                     if c in df.columns and 'id_consultante' not in df.columns:
                         df.rename(columns={c: 'id_consultante'}, inplace=True)
-                # Unificar variantes de Fecha
-                for c in ['fecha', 'FECHA', 'BirthDate', 'Nacimiento']:
+                # Normalización Universal de Fechas
+                for c in ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac']:
                     if c in df.columns and 'Fecha' not in df.columns:
                         df.rename(columns={c: 'Fecha'}, inplace=True)
-                # Unificar variantes de Hora
-                for c in ['hora', 'HORA', 'BirthTime']:
+                # Normalización Universal de Horas
+                for c in ['hora', 'HORA', 'BirthTime', 'Hora_Nac']:
                     if c in df.columns and 'Hora' not in df.columns:
                         df.rename(columns={c: 'Hora'}, inplace=True)
-                # Unificar variantes de Latitud
-                for c in ['lat', 'latitud', 'LATITUD', 'Lat']:
+                # Normalización Universal de Latitud
+                for c in ['lat', 'latitud', 'LATITUD', 'Lat', 'LAT']:
                     if c in df.columns and 'Latitud' not in df.columns:
                         df.rename(columns={c: 'Latitud'}, inplace=True)
-                # Unificar variantes de Longitud
-                for c in ['lon', 'longitud', 'LONGITUD', 'Lon', 'Lng', 'lng']:
+                # Normalización Universal de Longitud
+                for c in ['lon', 'longitud', 'LONGITUD', 'Lon', 'Lng', 'lng', 'LON']:
                     if c in df.columns and 'Longitud' not in df.columns:
                         df.rename(columns={c: 'Longitud'}, inplace=True)
                 
+                # Limpieza final de IDs
                 if 'id_consultante' in df.columns:
                     df['id_consultante'] = df['id_consultante'].astype(str).str.replace('.0', '', regex=False).str.strip()
         
@@ -212,7 +221,7 @@ st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700
 modo_app = st.sidebar.radio("Modo de trabajo", ["⚙️ Taller de Informes", "📅 Programar Cliente"], label_visibility="collapsed")
 st.sidebar.markdown("<hr/>", unsafe_allow_html=True)
 
-# VISOR DE AUDITORÍA TÉCNICA (Clave para verificar grados y minutos exactos)
+# VISOR DE AUDITORÍA TÉCNICA (Visualiza los grados y minutos exactos para Patricia)
 if st.session_state.textos_generados:
     st.sidebar.markdown("### 🔍 Datos Técnicos Exactos")
     st.sidebar.caption("Cálculos matemáticos usados para la interpretación:")
@@ -230,7 +239,7 @@ if modo_app == "📅 Programar Cliente":
         st.selectbox("1. Selecciona el Cliente:", opciones_cli)
         st.selectbox("2. Tipo de Informe:", ["Carta Natal", "Tránsitos Anuales", "Revolución Solar"])
         if st.button("➕ Programar", type="primary"):
-            st.info("Agrega la fila en tu Google Sheet y recarga la página para procesarla.")
+            st.info("Nota: En esta versión web, agrega la fila en tu Google Sheet y recarga la página para procesarla.")
     else:
         st.warning("No se cargaron consultantes. Revisa tu archivo de Google Sheets.")
 
@@ -240,7 +249,7 @@ if modo_app == "📅 Programar Cliente":
 elif modo_app == "⚙️ Taller de Informes":
     if not st.session_state.textos_generados:
         st.markdown("## ⚙️ Taller de Informes")
-        st.markdown("<p style='color: #B48E92; font-weight: 500;'>Procesa efemérides en tiempo real y genera borradores interpretativos profesionales.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #B48E92; font-weight: 500;'>Genera interpretaciones personalizadas basadas en efemérides exactas.</p>", unsafe_allow_html=True)
 
     # Filtrar solo informes pendientes
     pendientes = df_prog[df_prog['Estado'].astype(str).str.upper() == 'PENDIENTE'] if not df_prog.empty and 'Estado' in df_prog.columns else pd.DataFrame()
@@ -267,20 +276,20 @@ elif modo_app == "⚙️ Taller de Informes":
             cli_obj = df_cli[df_cli['id_consultante'] == id_sel].iloc[0]
             id_t = str(row_p.get('Id_Informe', '1')).replace('.0', '').strip()
 
-            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (RECUPERADO Y VISIBLE) ---
+            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (PARTE CRÍTICA) ---
             lat_rs, lon_rs, lug_final = None, None, ""
             if id_t == "3" or "Revolucion" in sel_p: 
                 st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
                 st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px; margin-bottom:0;'>📍 RELOCALIZACIÓN RS</p>", unsafe_allow_html=True)
                 st.sidebar.caption("Ingresa ciudad y país para buscar coordenadas exactas.")
                 
-                lug_rs_input = st.sidebar.text_input("Ciudad del Cumpleaños:", placeholder="Ej: Madrid, España", key="ciudad_rs_search")
+                lug_rs_input = st.sidebar.text_input("Ciudad de la Revolución:", placeholder="Ej: Madrid, España", key="ciudad_rs_search")
                 
                 if st.sidebar.button("🔍 Buscar en Mapa Global", use_container_width=True):
                     if lug_rs_input:
                         with st.spinner("Buscando coordenadas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astroimpacto_premium_v_final")
+                                geolocator = Nominatim(user_agent="astroimpacto_premium_final")
                                 loc = geolocator.geocode(lug_rs_input)
                                 if loc:
                                     st.session_state.lat_rs_auto = str(loc.latitude)
@@ -297,31 +306,37 @@ elif modo_app == "⚙️ Taller de Informes":
 
             st.sidebar.markdown("<br>", unsafe_allow_html=True)
             if st.sidebar.button("🚀 INICIAR PROCESAMIENTO", type="primary", use_container_width=True):
-                with st.spinner("Calculando efemérides y redactando informe integral..."):
-                    try:
-                        # Aseguramos que el motor reciba un objeto cliente con nombres de columnas limpios
-                        if id_t == "2":
-                            st.session_state.tipo_reporte_actual = "TRANSITOS"
-                            datos, plant = motor_web.procesar_transitos_con_ia(cli_obj, None, id_sel)
-                        elif id_t == "3" or "Revolucion" in sel_p:
-                            st.session_state.tipo_reporte_actual = "REVOLUCION"
-                            datos, plant = motor_web.procesar_rs_con_ia(cli_obj, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
-                        else:
-                            st.session_state.tipo_reporte_actual = "NATAL"
-                            datos, plant = motor_web.procesar_natal_con_ia(cli_obj, None, id_sel)
-                        
-                        if datos:
-                            st.session_state.update({'datos_diccionario': datos, 'plantilla_usar': plant, 'textos_generados': True, 'idx_prog_actual': idx_p})
-                            st.rerun()
-                        else:
-                            # Captura de error para diagnóstico real
-                            st.sidebar.error(f"⚠️ El motor falló: {plant}")
-                            st.sidebar.info("Consejo: Verifica tu conexión a OpenAI y que las columnas de Fecha/Hora/Latitud sean legibles.")
-                    except Exception as e:
-                        st.sidebar.error(f"❌ Error crítico: {e}")
+                # Validación de datos antes de procesar para evitar el error de Patricia
+                campos_faltantes = []
+                for campo in ['Fecha', 'Hora', 'Latitud', 'Longitud']:
+                    if campo not in cli_obj or pd.isna(cli_obj[campo]):
+                        campos_faltantes.append(campo)
+                
+                if campos_faltantes:
+                    st.sidebar.error(f"⚠️ Error: Faltan datos en el Excel: {', '.join(campos_faltantes)}")
+                else:
+                    with st.spinner("Calculando efemérides y redactando informe integral..."):
+                        try:
+                            if id_t == "2":
+                                st.session_state.tipo_reporte_actual = "TRANSITOS"
+                                datos, plant = motor_web.procesar_transitos_con_ia(cli_obj, None, id_sel)
+                            elif id_t == "3" or "Revolucion" in sel_p:
+                                st.session_state.tipo_reporte_actual = "REVOLUCION"
+                                datos, plant = motor_web.procesar_rs_con_ia(cli_obj, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
+                            else:
+                                st.session_state.tipo_reporte_actual = "NATAL"
+                                datos, plant = motor_web.procesar_natal_con_ia(cli_obj, None, id_sel)
+                            
+                            if datos:
+                                st.session_state.update({'datos_diccionario': datos, 'plantilla_usar': plant, 'textos_generados': True, 'idx_prog_actual': idx_p})
+                                st.rerun()
+                            else:
+                                st.sidebar.error(f"⚠️ El motor falló: {plant}")
+                        except Exception as e:
+                            st.sidebar.error(f"❌ Error crítico: {e}")
 
     # ==============================================================================
-    # 7. PANEL DE EDICIÓN INTEGRAL (INTEGRIDAD TOTAL - 450+ LÍNEAS)
+    # 7. PANEL DE EDICIÓN INTEGRAL (INTEGRIDAD TOTAL - 460+ LÍNEAS)
     # ==============================================================================
     if st.session_state.textos_generados:
         d = st.session_state.datos_diccionario
