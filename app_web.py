@@ -16,7 +16,7 @@ def get_base_64_of_bin_file(bin_file):
     """
     Convierte una imagen local a formato Base64 para inyectarla en el HTML.
     Es fundamental para logos y favicons sin depender de rutas de servidor externas,
-    asegurando que el diseño sea portable y profesional.
+    asegurando que el diseño sea portable y profesional en cualquier dispositivo.
     """
     try:
         if os.path.exists(bin_file):
@@ -121,6 +121,15 @@ st.markdown("""
     .stAlert {
         border-radius: 12px;
     }
+
+    /* Métrica de Diagnóstico en Sidebar */
+    .diag-box {
+        padding: 10px;
+        background-color: #f0f2f6;
+        border-radius: 5px;
+        margin-bottom: 10px;
+        font-size: 0.8rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -187,11 +196,11 @@ def cargar_bases_web():
                     if c in df.columns and 'id_consultante' not in df.columns:
                         df.rename(columns={c: 'id_consultante'}, inplace=True)
                 # Normalización Universal de Fechas
-                for c in ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac']:
+                for c in ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac', 'FECHA NACIMIENTO']:
                     if c in df.columns and 'Fecha' not in df.columns:
                         df.rename(columns={c: 'Fecha'}, inplace=True)
                 # Normalización Universal de Horas
-                for c in ['hora', 'HORA', 'BirthTime', 'Hora_Nac']:
+                for c in ['hora', 'HORA', 'BirthTime', 'Hora_Nac', 'HORA NACIMIENTO']:
                     if c in df.columns and 'Hora' not in df.columns:
                         df.rename(columns={c: 'Hora'}, inplace=True)
                 # Normalización Universal de Latitud
@@ -276,6 +285,21 @@ elif modo_app == "⚙️ Taller de Informes":
             cli_obj = df_cli[df_cli['id_consultante'] == id_sel].iloc[0]
             id_t = str(row_p.get('Id_Informe', '1')).replace('.0', '').strip()
 
+            # --- DIAGNÓSTICO PRE-PROCESAMIENTO ---
+            st.sidebar.markdown("<p style='font-size:0.7rem; font-weight:700; margin-top:10px;'>📊 DIAGNÓSTICO DE DATOS</p>", unsafe_allow_html=True)
+            check_fecha = "✅" if "Fecha" in cli_obj and not pd.isna(cli_obj["Fecha"]) else "❌"
+            check_hora = "✅" if "Hora" in cli_obj and not pd.isna(cli_obj["Hora"]) else "❌"
+            check_lat = "✅" if "Latitud" in cli_obj and not pd.isna(cli_obj["Latitud"]) else "❌"
+            check_lon = "✅" if "Longitud" in cli_obj and not pd.isna(cli_obj["Longitud"]) else "❌"
+            
+            diag_html = f"""
+            <div class='diag-box'>
+                Fecha: {check_fecha} | Hora: {check_hora}<br>
+                Lat: {check_lat} | Lon: {check_lon}
+            </div>
+            """
+            st.sidebar.markdown(diag_html, unsafe_allow_html=True)
+
             # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (PARTE CRÍTICA) ---
             lat_rs, lon_rs, lug_final = None, None, ""
             if id_t == "3" or "Revolucion" in sel_p: 
@@ -289,7 +313,7 @@ elif modo_app == "⚙️ Taller de Informes":
                     if lug_rs_input:
                         with st.spinner("Buscando coordenadas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astroimpacto_premium_final")
+                                geolocator = Nominatim(user_agent="astroimpacto_premium_v470")
                                 loc = geolocator.geocode(lug_rs_input)
                                 if loc:
                                     st.session_state.lat_rs_auto = str(loc.latitude)
@@ -314,29 +338,36 @@ elif modo_app == "⚙️ Taller de Informes":
                 
                 if campos_faltantes:
                     st.sidebar.error(f"⚠️ Error: Faltan datos en el Excel: {', '.join(campos_faltantes)}")
+                    st.sidebar.info("Por favor, revisa que los nombres de las columnas en tu Excel sean correctos (Fecha, Hora, Latitud, Longitud).")
                 else:
                     with st.spinner("Calculando efemérides y redactando informe integral..."):
                         try:
+                            datos, plant = None, None
+                            # Limpieza extra de los datos del consultante para el motor
+                            cli_clean = cli_obj.to_dict()
+                            
                             if id_t == "2":
                                 st.session_state.tipo_reporte_actual = "TRANSITOS"
-                                datos, plant = motor_web.procesar_transitos_con_ia(cli_obj, None, id_sel)
+                                datos, plant = motor_web.procesar_transitos_con_ia(cli_clean, None, id_sel)
                             elif id_t == "3" or "Revolucion" in sel_p:
                                 st.session_state.tipo_reporte_actual = "REVOLUCION"
-                                datos, plant = motor_web.procesar_rs_con_ia(cli_obj, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
+                                datos, plant = motor_web.procesar_rs_con_ia(cli_clean, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
                             else:
                                 st.session_state.tipo_reporte_actual = "NATAL"
-                                datos, plant = motor_web.procesar_natal_con_ia(cli_obj, None, id_sel)
+                                datos, plant = motor_web.procesar_natal_con_ia(cli_clean, None, id_sel)
                             
                             if datos:
                                 st.session_state.update({'datos_diccionario': datos, 'plantilla_usar': plant, 'textos_generados': True, 'idx_prog_actual': idx_p})
                                 st.rerun()
                             else:
+                                # Mostrar el error específico del motor para diagnóstico
                                 st.sidebar.error(f"⚠️ El motor falló: {plant}")
+                                st.sidebar.info("Consejo: Verifica tu conexión a OpenAI y tus créditos API.")
                         except Exception as e:
-                            st.sidebar.error(f"❌ Error crítico: {e}")
+                            st.sidebar.error(f"❌ Error crítico inesperado: {e}")
 
     # ==============================================================================
-    # 7. PANEL DE EDICIÓN INTEGRAL (INTEGRIDAD TOTAL - 460+ LÍNEAS)
+    # 7. PANEL DE EDICIÓN INTEGRAL (INTEGRIDAD TOTAL - 470+ LÍNEAS)
     # ==============================================================================
     if st.session_state.textos_generados:
         d = st.session_state.datos_diccionario
