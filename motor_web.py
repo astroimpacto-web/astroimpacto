@@ -1,153 +1,203 @@
 import swisseph as swe
 import pandas as pd
 import consultor_web
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import time
+import re
 
 # ==========================================
 # CONFIGURACIÓN DE EFEMÉRIDES PARA LA NUBE
 # ==========================================
 swe.set_ephe_path('') 
+FLAGS = swe.FLG_SWIEPH | swe.FLG_SPEED
 
-def obtener_datos_astrologicos(dia, mes, anio, hora, minuto, lat, lon):
-    """Calcula las posiciones planetarias básicas usando Swiss Ephemeris"""
-    jd = swe.julday(anio, mes, dia, hora + minuto/60.0)
-    
-    planetas_ids = {
-        "Sol": swe.SUN, "Luna": swe.MOON, "Mercurio": swe.MERCURY, 
-        "Venus": swe.VENUS, "Marte": swe.MARS, "Jupiter": swe.JUPITER, 
-        "Saturno": swe.SATURN, "Urano": swe.URANUS, "Neptuno": swe.NEPTUNE, 
-        "Pluton": swe.PLUTO
-    }
-    
-    posiciones = {}
-    for nombre, id_p in planetas_ids.items():
-        res = swe.calc_ut(jd, id_p)[0]
-        posiciones[nombre] = res % 360
+# --- FUNCIONES DE FORMATEO TÉCNICO ---
+def obtener_signo(lon):
+    return ["Aries", "Tauro", "Géminis", "Cáncer", "Leo", "Virgo", "Libra", "Escorpio", "Sagitario", "Capricornio", "Acuario", "Piscis"][int(lon/30)%12]
 
+def deg_to_dms_sign(lon):
+    """Convierte grados decimales al formato: 15° Aries 23'"""
+    signos = ["Aries", "Tauro", "Géminis", "Cáncer", "Leo", "Virgo", "Libra", "Escorpio", "Sagitario", "Capricornio", "Acuario", "Piscis"]
+    signo_idx = int(lon / 30) % 12
+    grados = int(lon % 30)
+    minutos = int((lon % 1) * 60)
+    return f"{grados:02d}° {signos[signo_idx]} {minutos:02d}'"
+
+def limpiar_coordenada(val):
+    try: return float(val)
+    except: return 0.0
+
+# ==========================================
+# CÁLCULOS ASTROLÓGICOS DE PRECISIÓN
+# ==========================================
+
+def obtener_datos_astrologicos(dia, mes, anio, hora, lat, lon):
+    jd = swe.julday(anio, mes, dia, hora, swe.GREG_CAL)
+    planetas = {}
+    for name, id_p in [("Sol", swe.SUN), ("Luna", swe.MOON), ("Mercurio", swe.MERCURY), ("Venus", swe.VENUS), ("Marte", swe.MARS), ("Júpiter", swe.JUPITER), ("Saturno", swe.SATURN)]:
+        planetas[name] = swe.calc_ut(jd, id_p, FLAGS)[0][0]
     casas, ascmc = swe.houses(jd, lat, lon, b'P')
-    posiciones["Ascendente"] = ascmc[0]
-    posiciones["Medio Cielo"] = ascmc[2]
-    
-    return posiciones, casas
-
-# ==========================================
-# FUNCIONES DE PROCESAMIENTO (MÁXIMA PROFUNDIDAD)
-# ==========================================
+    return planetas, ascmc[0], ascmc[1]
 
 def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, lugar_rs=None):
-    """Genera el informe de Revolución Solar COMPLETO con sistema de reintentos anti-error"""
+    """Genera el informe de RS con Auditoría Técnica detallada"""
     try:
         nombre = cliente.get('Nombres', 'Consultante')
-        rol = "Eres Patricia Ramirez, astróloga profesional de Astroimpacto. Tu estilo es profundo, psicológico, evolutivo y muy detallado. No uses listas, escribe párrafos fluidos y elegantes."
         
-        # PROMPT MAESTRO AMPLIADO: Pedimos las 11 secciones necesarias
-        prompt = f"""
-        Realiza una Revolución Solar exhaustiva para {nombre} (Relocalizada en {lugar_rs}).
-        Debes generar textos largos y significativos. Responde exactamente en este formato, separando con '###':
+        # 1. RECUPERAR DATOS NATALES
+        # Asumimos que el Excel tiene columnas Fecha, Hora, Latitud, Longitud
+        # Si no existen, usamos valores por defecto (evita crash)
+        try:
+            f_nac = pd.to_datetime(cliente.get('Fecha'))
+            h_nac = float(cliente.get('Hora', 12.0)) # Formato decimal 14.5 = 14:30
+            lat_n = limpiar_coordenada(cliente.get('Latitud', 0))
+            lon_n = limpiar_coordenada(cliente.get('Longitud', 0))
+        except:
+            return None, "Error: Datos de nacimiento incompletos para cálculos matemáticos."
 
-        1. Reto de transformación anual (3 líneas profundas) ###
-        2. Oportunidad mayor del año (3 líneas profundas) ###
-        3. Cambio principal en la estructura de vida (3 líneas profundas) ###
-        4. Clima vincular y de relaciones (3 líneas profundas) ###
-        5. Interpretación extensa del Clima General de la Revolución Solar. Habla del Ascendente Anual y la posición del Sol. (Mínimo 4 párrafos largos) ###
-        6. Panorama Laboral y Económico detallado (Mínimo 3 párrafos) ###
-        7. Panorama Emocional, Hogar y Salud interna (Mínimo 3 párrafos) ###
-        8. Introducción inspiradora al informe (1 párrafo cálido) ###
-        9. Resumen Psicológico de su Carta Natal Base (Mínimo 3 párrafos sobre su esencia) ###
-        10. Análisis de los Tránsitos Lentos actuales (Plutón, Saturno, Júpiter) y cómo afectan este año (Mínimo 3 párrafos) ###
-        11. Análisis de sus Progresiones Secundarias y su estado de maduración interna actual (Mínimo 3 párrafos)
-        """
+        # 2. CÁLCULO DE POSICIONES NATALES
+        planetas_nat, asc_nat, mc_nat = obtener_datos_astrologicos(f_nac.day, f_nac.month, f_nac.year, h_nac, lat_n, lon_n)
+
+        # 3. CÁLCULO DE REVOLUCIÓN SOLAR (Búsqueda del Retorno Solar)
+        anio_actual = datetime.now().year
+        jd_inicio_busqueda = swe.julday(anio_actual, f_nac.month, f_nac.day - 1, 0.0)
+        sol_natal = planetas_nat['Sol']
         
-        # SISTEMA DE REINTENTOS (Exponential Backoff)
+        jd_rs = jd_inicio_busqueda
+        for _ in range(30): # Iteración Newton-Raphson para hallar el segundo exacto
+            sol_ahora = swe.calc_ut(jd_rs, swe.SUN, FLAGS)[0][0]
+            diff = sol_natal - sol_ahora
+            if diff > 180: diff -= 360
+            elif diff < -180: diff += 360
+            if abs(diff) < 0.00001: break
+            jd_rs += diff / 0.9856 # El sol se mueve aprox 1 grado por día
+        
+        # Posiciones en el momento de la RS
+        lat_calc = lat_rs if lat_rs is not None else lat_n
+        lon_calc = lon_rs if lon_rs is not None else lon_n
+        planetas_rs, asc_rs, mc_rs = obtener_datos_astrologicos(1, 1, 2000, 0, lat_calc, lon_calc) # El JD ya define el tiempo
+        # Recalcular con el JD exacto de la RS
+        for name, id_p in [("Sol", swe.SUN), ("Luna", swe.MOON), ("Mercurio", swe.MERCURY), ("Venus", swe.VENUS), ("Marte", swe.MARS)]:
+            planetas_rs[name] = swe.calc_ut(jd_rs, id_p, FLAGS)[0][0]
+        _, ascmc_rs = swe.houses(jd_rs, lat_calc, lon_calc, b'P')
+        asc_rs = ascmc_rs[0]
+
+        # 4. PROGRESIONES SECUNDARIAS (1 Día = 1 Año)
+        edad = anio_actual - f_nac.year
+        jd_progresado = swe.julday(f_nac.year, f_nac.month, f_nac.day, h_nac, swe.GREG_CAL) + edad
+        planetas_prog = {}
+        for name, id_p in [("Sol", swe.SUN), ("Luna", swe.MOON), ("Marte", swe.MARS)]:
+            planetas_prog[name] = swe.calc_ut(jd_progresado, id_p, FLAGS)[0][0]
+
+        # 5. CONSTRUCCIÓN DEL PANEL DE AUDITORÍA (Lo que antes veías en VS Code)
+        auditoria = f"""
+        --- PANEL TÉCNICO DE AUDITORÍA ---
+        NATAL: Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)}
+        REVOLUCIÓN SOLAR {anio_actual}:
+        Ubicación: {lugar_rs if lugar_rs else 'Nacimiento'}
+        Asc Anual: {deg_to_dms_sign(asc_rs)}
+        Luna Anual: {deg_to_dms_sign(planetas_rs['Luna'])}
+        PROGRESIONES (Edad {edad}):
+        Luna Prog: {deg_to_dms_sign(planetas_prog['Luna'])}
+        Sol Prog: {deg_to_dms_sign(planetas_prog['Sol'])}
+        ----------------------------------
+        """
+
+        # 6. LLAMADA A IA CON DATOS TÉCNICOS REALES
+        rol = "Eres Patricia Ramirez, astróloga profesional. Tu estilo es profundo y detallado."
+        prompt = f"""
+        DATOS TÉCNICOS REALES:
+        Natal: Asc {obtener_signo(asc_nat)}, Sol {obtener_signo(sol_natal)}.
+        RS: Asc Anual {obtener_signo(asc_rs)}, Luna Anual {obtener_signo(planetas_rs['Luna'])}.
+        Progresiones: Luna Progresada en {obtener_signo(planetas_prog['Luna'])}.
+
+        Basado en estos datos EXACTOS, redacta:
+        1. Reto de transformación ###
+        2. Oportunidad mayor ###
+        3. Cambio principal ###
+        4. Vínculos ###
+        5. Interpretación Clima General (Mínimo 4 párrafos profundos) ###
+        6. Laboral ###
+        7. Emocional ###
+        8. Introducción ###
+        9. Resumen Natal ###
+        10. Tránsitos Lentos ###
+        11. Análisis de Progresiones
+        """
+
         resultado = ""
         for i in range(3):
             resultado = consultor_web.consultar_gpt(rol, prompt, 3500)
-            if resultado and "Error" not in resultado:
-                break
-            time.sleep(2 * (i + 1)) # Espera un poco antes de reintentar
+            if resultado and "Error" not in resultado: break
+            time.sleep(2)
 
-        # Fallback si después de 3 intentos sigue fallando
         if "Error" in resultado or not resultado:
-            partes = [
-                "Este año te propone un profundo viaje de redescubrimiento personal.",
-                "Tendrás la oportunidad de consolidar tus proyectos más ambiciosos.",
-                "El cambio se manifestará en tu forma de organizar tu rutina diaria.",
-                "Tus relaciones entrarán en una fase de mayor compromiso y verdad.",
-                "El clima general de tu Revolución Solar indica un año de gran actividad y expansión consciente.",
-                "En lo laboral, es momento de sembrar con paciencia para cosechar abundancia.",
-                "Emocionalmente, el año te pide conectar con tu intuición y cuidar tu mundo privado.",
-                "Bienvenido a este análisis detallado de tu cielo anual.",
-                "Tu esencia natal vibra con una energía de resiliencia y creatividad constante.",
-                "Los tránsitos de los planetas lentos están reestructurando tus metas a largo plazo.",
-                "Tus progresiones sugieren que estás listo para dar un paso hacia una mayor madurez interna."
-            ]
+            partes = ["Error de conexión"] * 11
         else:
             partes = [p.strip() for p in resultado.split('###')]
 
-        # Construcción del diccionario con todas las llaves que espera la web
-        datos_para_ia = {
+        # Diccionario final para Streamlit
+        return {
             "nombre_cliente": nombre,
-            "titulo_informe": f"Revolución Solar {datetime.now().year}",
+            "titulo_informe": f"Revolución Solar {anio_actual}",
+            "auditoria_tecnica": auditoria, # Enviamos la auditoría para mostrarla en la web
             "perspectivas": {
-                "transformacion": partes[0] if len(partes) > 0 else "Análisis en proceso.",
-                "oportunidades": partes[1] if len(partes) > 1 else "Análisis en proceso.",
-                "cambio": partes[2] if len(partes) > 2 else "Análisis en proceso.",
-                "relaciones": partes[3] if len(partes) > 3 else "Análisis en proceso."
+                "transformacion": partes[0], "oportunidades": partes[1], "cambio": partes[2], "relaciones": partes[3]
             },
-            "revolucion_solar_general_1": partes[4] if len(partes) > 4 else "Contenido en proceso de redacción...",
-            "situacion_laboral_economica": partes[5] if len(partes) > 5 else "Contenido en proceso de redacción...",
-            "situacion_emocional": partes[6] if len(partes) > 6 else "Contenido en proceso de redacción...",
-            "intro_texto": partes[7] if len(partes) > 7 else "Bienvenido a tu informe anual.",
-            "carta_natal_resumen": partes[8] if len(partes) > 8 else "Resumen natal no disponible en este momento.",
-            "transitos_personales": partes[9] if len(partes) > 9 else "Tránsitos no disponibles en este momento.",
-            "progresiones_secundarias": partes[10] if len(partes) > 10 else "Progresiones no disponibles en este momento.",
+            "revolucion_solar_general_1": partes[4],
+            "situacion_laboral_economica": partes[5],
+            "situacion_emocional": partes[6],
+            "intro_texto": partes[7],
+            "carta_natal_resumen": partes[8],
+            "transitos_personales": partes[9],
+            "progresiones_secundarias": partes[10],
             "panorama_trimestral": [
-                {"titulo": "Trimestre 1: Inicios", "texto": "Periodo de gran actividad inicial donde las semillas del año comienzan a brotar."},
-                {"titulo": "Trimestre 2: Consolidación", "texto": "Momento de revisar los pasos dados y asentar las bases materiales."},
-                {"titulo": "Trimestre 3: Cosecha", "texto": "Fase de visibilidad donde los resultados del esfuerzo anual se manifiestan."},
-                {"titulo": "Trimestre 4: Integración", "texto": "Balance final y preparación para el cierre del ciclo solar actual."}
+                {"titulo": "Trimestre 1", "texto": "Inicios basados en tu Asc Anual."},
+                {"titulo": "Trimestre 2", "texto": "Desarrollo de la Luna Anual."},
+                {"titulo": "Trimestre 3", "texto": "Cosecha y resultados."},
+                {"titulo": "Trimestre 4", "texto": "Integración final."}
             ]
-        }
-        
-        return datos_para_ia, "informe_astroimpacto_rs.html"
+        }, "informe_astroimpacto_rs.html"
+
     except Exception as e:
-        return None, f"Error en Revolución Solar: {str(e)}"
+        import traceback
+        return None, f"Error técnico: {str(e)}\n{traceback.format_exc()}"
 
 def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
-    """Genera el informe profundo de Carta Natal con reintentos"""
+    """Genera el informe profundo de Carta Natal con cálculos exactos"""
     try:
         nombre = cliente.get('Nombres', 'Consultante')
+        planetas, casas, mc, f_nac, h_nac, lat, lon = calcular_posiciones_base_completa(cliente)
+        
         rol = "Eres Patricia Ramirez, astróloga profesional. Redacta de forma extensa y psicológica."
+        prompt = f"Analiza Natal para {nombre}: Sol {obtener_signo(planetas['Sol'])}, Luna {obtener_signo(planetas['Luna'])}, Asc {obtener_signo(casas[0])}. Separa con ###"
         
-        prompt = f"""
-        Realiza un análisis natal profundo para {nombre}. Responde separando con '###':
-        Palabras Clave ###
-        Interpretación extensa del Sol (3 párrafos) ###
-        Interpretación extensa de la Luna (3 párrafos) ###
-        Interpretación extensa del Ascendente (3 párrafos) ###
-        Gran síntesis final de personalidad (4 párrafos)
-        """
-        
-        resultado = ""
-        for i in range(2):
-            resultado = consultor_web.consultar_gpt(rol, prompt, 2500)
-            if resultado and "Error" not in resultado:
-                break
-            time.sleep(2)
+        resultado = consultor_web.consultar_gpt(rol, prompt, 2500)
+        partes = [p.strip() for p in resultado.split('###')] if "Error" not in resultado else [""]*5
 
-        partes = [p.strip() for p in resultado.split('###')] if resultado and "Error" not in resultado else [""]*5
-
-        datos_para_ia = {
+        return {
             "nombre_cliente": nombre,
             "titulo_informe": "Análisis de Carta Natal",
-            "aspectos_clave": partes[0].split(' - ') if len(partes) > 0 and partes[0] else ["Esencia", "Emoción", "Camino"],
-            "interpretacion_sol_signo": partes[1] if len(partes) > 1 else "Interpretación solar en proceso.",
-            "interpretacion_luna_signo": partes[2] if len(partes) > 2 else "Interpretación lunar en proceso.",
-            "interpretacion_asc_signo": partes[3] if len(partes) > 3 else "Interpretación del ascendente en proceso.",
-            "interpretacion_personalidad_global": partes[4] if len(partes) > 4 else "Síntesis final en proceso.",
-            "foda": {"fortalezas": ["Liderazgo natural"], "oportunidades": ["Crecimiento personal"], "debilidades": ["Autoexigencia"], "amenazas": ["Presión externa"]}
-        }
-        return datos_para_ia, "informe_astroimpacto.html"
+            "auditoria_tecnica": f"Sol: {deg_to_dms_sign(planetas['Sol'])} | Luna: {deg_to_dms_sign(planetas['Luna'])} | Asc: {deg_to_dms_sign(casas[0])}",
+            "aspectos_clave": ["Esencia", "Emoción", "Camino"],
+            "interpretacion_sol_signo": partes[1] if len(partes) > 1 else "",
+            "interpretacion_luna_signo": partes[2] if len(partes) > 2 else "",
+            "interpretacion_asc_signo": partes[3] if len(partes) > 3 else "",
+            "interpretacion_personalidad_global": partes[4] if len(partes) > 4 else "",
+            "foda": {"fortalezas": ["Liderazgo"], "oportunidades": ["Crecimiento"], "debilidades": ["Dudas"], "amenazas": ["Presión"]}
+        }, "informe_astroimpacto.html"
     except Exception as e:
         return None, str(e)
+
+def calcular_posiciones_base_completa(cliente):
+    """Función de apoyo para cálculos natales básicos"""
+    f = pd.to_datetime(cliente.get('Fecha'))
+    h = float(cliente.get('Hora', 12.0))
+    lat = limpiar_coordenada(cliente.get('Latitud', 0))
+    lon = limpiar_coordenada(cliente.get('Longitud', 0))
+    jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
+    planetas = {}
+    for name, id_p in [("Sol", swe.SUN), ("Luna", swe.MOON)]:
+        planetas[name] = swe.calc_ut(jd, id_p, FLAGS)[0][0]
+    casas, ascmc = swe.houses(jd, lat, lon, b'P')
+    return planetas, ascmc, ascmc[1], f, h, lat, lon
