@@ -195,14 +195,13 @@ def cargar_bases_web():
         df_p = pd.read_csv(u_prog).dropna(how="all")
 
         # Diccionario de Mapeo Inteligente (Sinónimos de encabezados de Excel)
-        # Patricia puede escribir 'lat' o 'Latitud' y el sistema lo entenderá.
         mapa_columnas = {
-            'id_consultante': ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli', 'id_consultante', 'CODIGO'],
-            'Fecha': ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac', 'FECHA NACIMIENTO', 'FECHA_NACIMIENTO'],
-            'Hora': ['hora', 'HORA', 'BirthTime', 'Hora_Nac', 'HORA NACIMIENTO', 'HORA_NACIMIENTO', 'TIEMPO'],
-            'Latitud': ['lat', 'latitud', 'LATITUD', 'Lat', 'LAT', 'COOR_LAT', 'LAT_NAC'],
-            'Longitud': ['lon', 'longitud', 'LONGITUD', 'Lon', 'Lng', 'lng', 'LON', 'COOR_LON', 'LON_NAC'],
-            'Nombres': ['Nombre', 'NOMBRE', 'Nombres', 'NAME', 'Consultante', 'CLIENTE']
+            'id_consultante': ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli', 'id_consultante', 'CODIGO', 'ID_CONSULTANTE'],
+            'Fecha': ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac', 'FECHA NACIMIENTO', 'FECHA_NACIMIENTO', 'DATE'],
+            'Hora': ['hora', 'HORA', 'BirthTime', 'Hora_Nac', 'HORA NACIMIENTO', 'HORA_NACIMIENTO', 'TIME'],
+            'Latitud': ['lat', 'latitud', 'LATITUD', 'Lat', 'LAT', 'COOR_LAT', 'LAT_NAC', 'latitude'],
+            'Longitud': ['lon', 'longitud', 'LONGITUD', 'Lon', 'Lng', 'lng', 'LON', 'COOR_LON', 'LON_NAC', 'longitude'],
+            'Nombres': ['Nombre', 'NOMBRE', 'Nombres', 'NAME', 'Consultante', 'CLIENTE', 'nombre']
         }
 
         # Aplicar Mapeo a ambos DataFrames para unificar la estructura de datos
@@ -230,29 +229,31 @@ df_cli, df_prog = cargar_bases_web()
 # ==============================================================================
 st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px;'>NAVEGACIÓN</p>", unsafe_allow_html=True)
 modo_app = st.sidebar.radio("Menú Principal", ["⚙️ Taller de Informes", "📅 Programar Cliente"], label_visibility="collapsed")
-st.sidebar.markdown("<hr/>", unsafe_allow_html=True)
+st.sidebar.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
 
 # VISOR DE AUDITORÍA TÉCNICA (Visualiza los grados y minutos exactos para Patricia)
 if st.session_state.textos_generados:
     st.sidebar.markdown("### 🔍 Datos Técnicos Exactos")
     st.sidebar.caption("Cálculos matemáticos usados para la interpretación:")
     st.sidebar.code(st.session_state.datos_diccionario.get('auditoria_tecnica', 'Sin datos disponibles'), language='text')
-    st.sidebar.markdown("<hr/>", unsafe_allow_html=True)
+    st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
 
 # ==============================================================================
-# 5. MODO: PROGRAMAR CLIENTE
+# 5. MODO: PROGRAMAR CLIENTE (GESTIÓN DE AGENDA)
 # ==============================================================================
 if modo_app == "📅 Programar Cliente":
     st.markdown("## 📅 Agenda de Clientes")
-    st.markdown("<p style='color: #B48E92; font-weight: 500;'>Asigna un tipo de reporte a un consultante para que aparezca en el Taller.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #B48E92; font-weight: 500;'>Asigna un tipo de reporte a un consultante para que aparezca en el Taller de trabajo.</p>", unsafe_allow_html=True)
     if not df_cli.empty:
         # Usamos nombres normalizados por el mapeo anterior
-        n_col = 'Nombres' if 'Nombres' in df_cli.columns else df_cli.columns[1]
+        n_col = 'Nombres' if 'Nombres' in df_cli.columns else df_cli.columns[0]
         opciones_cli = [f"{row[n_col]} (ID: {row['id_consultante']})" for _, row in df_cli.iterrows() if 'id_consultante' in df_cli.columns]
-        st.selectbox("1. Selecciona el Cliente:", opciones_cli)
-        st.selectbox("2. Tipo de Informe:", ["Carta Natal", "Tránsitos Anuales", "Revolución Solar"])
-        if st.button("➕ Programar", type="primary"):
-            st.info("Nota: En esta versión web, agrega la fila en tu Google Sheet y recarga la página para procesarla.")
+        st.selectbox("1. Selecciona el Cliente de la base de datos:", opciones_cli)
+        st.selectbox("2. Selecciona el Tipo de Informe a realizar:", ["Carta Natal", "Tránsitos Anuales", "Revolución Solar"])
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("➕ Registrar en Agenda de Trabajo", type="primary"):
+            st.info("Nota: En esta versión web, agrega la fila manualmente en tu Google Sheet y recarga la página para verla en el Taller.")
     else:
         st.warning("No se cargaron consultantes. Revisa tu archivo de Google Sheets.")
 
@@ -262,9 +263,9 @@ if modo_app == "📅 Programar Cliente":
 elif modo_app == "⚙️ Taller de Informes":
     if not st.session_state.textos_generados:
         st.markdown("## ⚙️ Taller de Informes")
-        st.markdown("<p style='color: #B48E92; font-weight: 500;'>Genera interpretaciones personalizadas basadas en efemérides exactas.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #B48E92; font-weight: 500;'>Procesa efemérides en tiempo real y genera borradores interpretativos profesionales.</p>", unsafe_allow_html=True)
 
-    # Filtrar solo informes pendientes
+    # Filtramos la cola de trabajo: solo informes en estado PENDIENTE
     pendientes = df_prog[df_prog['Estado'].astype(str).str.upper() == 'PENDIENTE'] if not df_prog.empty and 'Estado' in df_prog.columns else pd.DataFrame()
 
     if pendientes.empty and not st.session_state.textos_generados:
@@ -276,16 +277,13 @@ elif modo_app == "⚙️ Taller de Informes":
             if 'id_consultante' in row:
                 id_c = str(row['id_consultante']).strip()
                 cli_data = df_cli[df_cli['id_consultante'] == id_c] if not df_cli.empty else pd.DataFrame()
-                
-                n_col_cli = 'Nombres' if 'Nombres' in cli_data.columns else cli_data.columns[1] if not cli_data.empty else ""
-                nombre_cli = cli_data.iloc[0][n_col_cli] if not cli_data.empty else f"ID: {id_c}"
-                
+                nombre_cli = cli_data.iloc[0].get('Nombres', 'Consultante') if not cli_data.empty else f"ID: {id_c}"
                 id_tipo_inf = str(row.get('Id_Informe', '1')).replace('.0', '').strip()
                 tipo_txt = "Natal" if id_tipo_inf == "1" else "Transitos" if id_tipo_inf == "2" else "Revolucion"
                 opciones_menu.append(f"{nombre_cli} ({tipo_txt}) | Fila: {idx}")
 
         if opciones_menu:
-            sel_p = st.sidebar.selectbox("Selecciona el informe:", opciones_menu, label_visibility="collapsed")
+            sel_p = st.sidebar.selectbox("Selecciona el informe a procesar:", opciones_menu, label_visibility="collapsed")
             idx_p = int(sel_p.split("Fila: ")[1])
             row_p = pendientes.loc[idx_p]
             id_sel = str(row_p['id_consultante'])
@@ -293,7 +291,6 @@ elif modo_app == "⚙️ Taller de Informes":
             id_t = str(row_p.get('Id_Informe', '1')).replace('.0', '').strip()
 
             # --- PANEL DE DIAGNÓSTICO DE DATOS (ANTELACIÓN AL ERROR) ---
-            # Esto ayuda a Patricia a saber si el Excel tiene huecos antes de apretar el botón.
             st.sidebar.markdown("<p style='font-size:0.7rem; font-weight:700; margin-top:10px;'>📊 DIAGNÓSTICO DE DATOS</p>", unsafe_allow_html=True)
             check_fecha = "✅" if "Fecha" in cli_obj and not pd.isna(cli_obj["Fecha"]) else "❌"
             check_hora = "✅" if "Hora" in cli_obj and not pd.isna(cli_obj["Hora"]) else "❌"
@@ -315,21 +312,25 @@ elif modo_app == "⚙️ Taller de Informes":
             if id_t == "3" or "Revolucion" in sel_p: 
                 st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
                 st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px; margin-bottom:0;'>📍 RELOCALIZACIÓN RS</p>", unsafe_allow_html=True)
-                st.sidebar.caption("Ingresa ciudad y país para buscar coordenadas exactas.")
+                st.sidebar.caption("Busca la ciudad donde el consultante pasará su retorno solar.")
                 
                 lug_rs_input = st.sidebar.text_input("Ciudad de la Revolución:", placeholder="Ej: Madrid, España", key="ciudad_rs_search")
                 
                 if st.sidebar.button("🔍 Buscar en Mapa Global", use_container_width=True):
                     if lug_rs_input:
-                        with st.spinner("Buscando coordenadas..."):
+                        with st.spinner("Conectando con el servidor de mapas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astroimpacto_premium_v500")
+                                geolocator = Nominatim(user_agent="astroimpacto_premium_v445")
                                 loc = geolocator.geocode(lug_rs_input)
                                 if loc:
-                                    st.session_state.lat_rs_auto, st.session_state.lon_rs_auto, st.session_state.lugar_rs_confirmado = str(loc.latitude), str(loc.longitude), loc.address
+                                    st.session_state.lat_rs_auto = str(loc.latitude)
+                                    st.session_state.lon_rs_auto = str(loc.longitude)
+                                    st.session_state.lugar_rs_confirmado = loc.address
                                     st.sidebar.success(f"Listo: {loc.address}")
-                                else: st.sidebar.error("Lugar no encontrado.")
-                            except Exception: st.sidebar.error("Error de conexión.")
+                                else:
+                                    st.sidebar.error("Lugar no encontrado. Revisa la ortografía.")
+                            except Exception:
+                                st.sidebar.error("Error temporal de conexión con el mapa.")
                 
                 lat_rs = st.sidebar.text_input("Latitud de la RS:", value=st.session_state.lat_rs_auto)
                 lon_rs = st.sidebar.text_input("Longitud de la RS:", value=st.session_state.lon_rs_auto)
@@ -338,165 +339,156 @@ elif modo_app == "⚙️ Taller de Informes":
 
             st.sidebar.markdown("<br>", unsafe_allow_html=True)
             if st.sidebar.button("🚀 INICIAR PROCESAMIENTO", type="primary", use_container_width=True):
-                # BLINDAJE DE DATOS: Creamos un paquete explícito con todas las llaves posibles.
-                # Esto asegura que motor_web.py encuentre siempre lo que necesita.
+                # BLINDAJE DE DATOS: Aseguramos que el motor reciba un diccionario con todas las llaves posibles
                 payload_motor = cli_obj.to_dict()
-                
-                # Duplicamos las llaves para que existan en minúscula y título (Evita error 'Datos Incompletos')
-                campos_clave = {
-                    "Fecha": "fecha",
-                    "Hora": "hora",
-                    "Latitud": "lat",
-                    "Longitud": "lon",
-                    "Nombres": "nombre"
-                }
-                for orig, dest in campos_clave.items():
-                    if orig in payload_motor:
-                        payload_motor[dest] = payload_motor[orig]
-                    elif dest in payload_motor:
-                        payload_motor[orig] = payload_motor[dest]
+                # Duplicamos llaves clave para mayor redundancia
+                payload_motor["fecha"] = payload_motor.get("Fecha")
+                payload_motor["hora"] = payload_motor.get("Hora")
+                payload_motor["lat"] = payload_motor.get("Latitud")
+                payload_motor["lon"] = payload_motor.get("Longitud")
 
-                # Validación final antes de enviar
-                faltantes = [k for k in ["Fecha", "Hora", "Latitud", "Longitud"] if k not in payload_motor or pd.isna(payload_motor[k])]
-                
-                if faltantes:
-                    st.sidebar.error(f"⚠️ No se puede procesar. Faltan estos datos en el Excel: {', '.join(faltantes)}")
-                else:
-                    with st.spinner("Calculando efemérides y redactando informe integral..."):
-                        try:
-                            datos, plant = None, None
-                            
-                            if id_t == "2":
-                                st.session_state.tipo_reporte_actual = "TRANSITOS"
-                                datos, plant = motor_web.procesar_transitos_con_ia(payload_motor, None, id_sel)
-                            elif id_t == "3" or "Revolucion" in sel_p:
-                                st.session_state.tipo_reporte_actual = "REVOLUCION"
-                                datos, plant = motor_web.procesar_rs_con_ia(payload_motor, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
-                            else:
-                                st.session_state.tipo_reporte_actual = "NATAL"
-                                datos, plant = motor_web.procesar_natal_con_ia(payload_motor, None, id_sel)
-                            
-                            if datos:
-                                st.session_state.update({'datos_diccionario': datos, 'plantilla_usar': plant, 'textos_generados': True, 'idx_prog_actual': idx_p})
-                                st.rerun()
-                            else:
-                                # Capturamos el error para que Patricia sepa qué pasó exactamente
-                                st.sidebar.error(f"⚠️ El motor falló: {plant}")
-                                st.sidebar.info("Consejo: Verifica tu conexión a OpenAI y tus créditos API.")
-                        except Exception as e:
-                            st.sidebar.error(f"❌ Error crítico inesperado: {e}")
+                with st.spinner("Calculando efemérides y redactando informe integral..."):
+                    try:
+                        datos, plant = None, None
+                        if id_t == "2":
+                            st.session_state.tipo_reporte_actual = "TRANSITOS"
+                            datos, plant = motor_web.procesar_transitos_con_ia(payload_motor, None, id_sel)
+                        elif id_t == "3" or "Revolucion" in sel_p:
+                            st.session_state.tipo_reporte_actual = "REVOLUCION"
+                            datos, plant = motor_web.procesar_rs_con_ia(payload_motor, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
+                        else:
+                            st.session_state.tipo_reporte_actual = "NATAL"
+                            datos, plant = motor_web.procesar_natal_con_ia(payload_motor, None, id_sel)
+                        
+                        if datos:
+                            st.session_state.update({'datos_diccionario': datos, 'plantilla_usar': plant, 'textos_generados': True, 'idx_prog_actual': idx_p})
+                            st.rerun()
+                        else:
+                            st.sidebar.error(f"⚠️ El motor falló: {plant}")
+                            st.sidebar.info("Consejo: Verifica tu conexión a OpenAI y tus créditos API.")
+                    except Exception as e:
+                        st.sidebar.error(f"❌ Error crítico en el procesamiento: {e}")
 
     # ==============================================================================
-    # 7. PANEL DE EDICIÓN INTEGRAL (DETALLE MÁXIMO - INTEGRIDAD TOTAL)
+    # 7. PANEL DE EDICIÓN INTEGRAL (INTEGRIDAD TOTAL - 500+ LÍNEAS)
     # ==============================================================================
     if st.session_state.textos_generados:
         d = st.session_state.datos_diccionario
         tipo = st.session_state.tipo_reporte_actual
         st.subheader(f"Editando: {d.get('titulo_informe')} - {d.get('nombre_cliente')}")
-        st.info("Revisa y personaliza cada sección del borrador generado por la IA antes de finalizar.")
+        st.info("Revisa y personaliza cada sección del borrador generado por la IA.")
 
-        # --- SECCIONES REVOLUCIÓN SOLAR ---
+        # --- SECCIONES REVOLUCIÓN SOLAR (EXTENSIÓN MÁXIMA) ---
         if tipo == "REVOLUCION":
-            with st.expander("1. Infografía Inicial (Cuadros de Síntesis)", expanded=False):
+            with st.expander("1. Infografía Inicial (Cuadros de Perspectiva)", expanded=False):
+                st.markdown("<p style='color:#666; font-size:0.85rem;'>Edita las frases cortas que aparecerán en los cuadros de la segunda página.</p>", unsafe_allow_html=True)
                 col1, col2 = st.columns(2)
                 with col1:
-                    d['perspectivas']['transformacion'] = st.text_area("El Gran Reto Anual", d['perspectivas'].get('transformacion', ''), height=100)
-                    d['perspectivas']['cambio'] = st.text_area("Área de Cambio Principal", d['perspectivas'].get('cambio', ''), height=100)
+                    d['perspectivas']['transformacion'] = st.text_area("El Gran Reto de Transformación Anual", d['perspectivas'].get('transformacion', ''), height=100)
+                    d['perspectivas']['cambio'] = st.text_area("Área donde se sentirá el Cambio Principal", d['perspectivas'].get('cambio', ''), height=100)
                 with col2:
-                    d['perspectivas']['oportunidades'] = st.text_area("Mayores Oportunidades", d['perspectivas'].get('oportunidades', ''), height=100)
-                    d['perspectivas']['relaciones'] = st.text_area("Tónica Vincular", d['perspectivas'].get('relaciones', ''), height=100)
+                    d['perspectivas']['oportunidades'] = st.text_area("Mayores Oportunidades de Crecimiento", d['perspectivas'].get('oportunidades', ''), height=100)
+                    d['perspectivas']['relaciones'] = st.text_area("Tónica del Clima Vincular y Social", d['perspectivas'].get('relaciones', ''), height=100)
             
-            with st.expander("2. Introducción y Bases (Natal / Tránsitos / Progresiones)", expanded=False):
-                d['intro_texto'] = st.text_area("Texto de Introducción Cálida", d.get('intro_texto',''), height=100)
-                d['carta_natal_resumen'] = st.text_area("Esencia Natal Resumida", d.get('carta_natal_resumen',''), height=150)
-                d['transitos_personales'] = st.text_area("Análisis de Tránsitos Lentos", d.get('transitos_personales',''), height=150)
-                d['progresiones_secundarias'] = st.text_area("Interpretación de Progresiones", d.get('progresiones_secundarias',''), height=150)
-                tips = st.text_area("Consejos de Acción (Uno por línea)", "\n".join(d.get('como_actuar_progresiones', [])))
-                d['como_actuar_progresiones'] = tips.split("\n")
+            with st.expander("2. Introducción y Análisis de Base (Natal / Tránsitos / Progresiones)", expanded=False):
+                st.markdown("<p style='color:#666; font-size:0.85rem;'>Analiza el punto de partida y el mundo interno del consultante.</p>", unsafe_allow_html=True)
+                d['intro_texto'] = st.text_area("Texto de Introducción Cálida al Informe", d.get('intro_texto',''), height=100)
+                d['carta_natal_resumen'] = st.text_area("Resumen Psicológico de la Esencia Natal", d.get('carta_natal_resumen',''), height=150)
+                d['transitos_personales'] = st.text_area("Análisis de los Tránsitos Planetarios Lentos", d.get('transitos_personales',''), height=150)
+                d['progresiones_secundarias'] = st.text_area("Interpretación de Progresiones y Estado Interior", d.get('progresiones_secundarias',''), height=150)
+                tips_p = st.text_area("Consejos de Acción ante Progresiones (Uno por línea)", "\n".join(d.get('como_actuar_progresiones', [])))
+                d['como_actuar_progresiones'] = tips_p.split("\n")
 
-            with st.expander("3. Revolución Solar (General y Profesional)", expanded=True):
-                d['revolucion_solar_general_1'] = st.text_area("Clima General RS", d.get('revolucion_solar_general_1',''), height=250)
-                revo_prop = st.text_area("Propuestas del Año (Uno por línea)", "\n".join(d.get('revo_propone', [])))
-                d['revo_propone'] = revo_prop.split("\n")
-                d['situacion_laboral_economica'] = st.text_area("Panorama Profesional", d.get('situacion_laboral_economica',''), height=180)
-                obj_lab = st.text_area("Objetivos Laborales (Uno por línea)", "\n".join(d.get('logro_objetivos_profesionales', [])))
-                d['logro_objetivos_profesionales'] = obj_lab.split("\n")
+            with st.expander("3. Revolución Solar (Clima General y Profesional)", expanded=True):
+                st.markdown("<p style='color:#666; font-size:0.85rem;'>El núcleo del año. Define la misión y los objetivos laborales.</p>", unsafe_allow_html=True)
+                d['revolucion_solar_general_1'] = st.text_area("Interpretación del Clima General de la Revolución Solar", d.get('revolucion_solar_general_1',''), height=250)
+                propuestas_revo = st.text_area("Propuestas Evolutivas del Año (Uno por línea)", "\n".join(d.get('revo_propone', [])))
+                d['revo_propone'] = propuestas_revo.split("\n")
+                d['situacion_laboral_economica'] = st.text_area("Panorama Vocacional, Económico y Profesional", d.get('situacion_laboral_economica',''), height=180)
+                objs_lab = st.text_area("Objetivos Profesionales Específicos (Uno por línea)", "\n".join(d.get('logro_objetivos_profesionales', [])))
+                d['logro_objetivos_profesionales'] = objs_lab.split("\n")
 
-            with st.expander("4. Emocional, Trimestral y Cierre", expanded=True):
-                d['situacion_emocional'] = st.text_area("Clima Afectivo", d.get('situacion_emocional',''), height=180)
-                st.markdown("**Cronograma Trimestral:**")
+            with st.expander("4. Clima Emocional y Panorama Trimestral", expanded=True):
+                st.markdown("<p style='color:#666; font-size:0.85rem;'>Vínculos afectivos y calendario de hitos a lo largo del año.</p>", unsafe_allow_html=True)
+                d['situacion_emocional'] = st.text_area("Análisis Profundo de la Vida Afectiva y Familiar", d.get('situacion_emocional',''), height=180)
+                st.markdown("**Cronograma Anual de Proyección Trimestral:**")
                 if 'panorama_trimestral' in d:
                     for i, t in enumerate(d.get('panorama_trimestral', [])):
-                        t['texto'] = st.text_area(f"📍 {t.get('titulo')}", t.get('texto', ''), key=f"rs_t_{i}", height=120)
-                plan_acc = st.text_area("Plan Acción Final (Uno por línea)", "\n".join(d.get('plan_accion_objetivos', [])))
+                        t['texto'] = st.text_area(f"📍 {t.get('titulo', 'Periodo')}", t.get('texto', ''), key=f"rs_t_{i}", height=120)
+                plan_acc = st.text_area("Plan de Acción Final (Uno por línea)", "\n".join(d.get('plan_accion_objetivos', [])))
                 d['plan_accion_objetivos'] = plan_acc.split("\n")
 
-        # --- SECCIONES TRÁNSITOS ANUALES ---
+        # --- SECCIONES TRÁNSITOS ANUALES (EXTENSIÓN MÁXIMA) ---
         elif tipo == "TRANSITOS":
-            with st.expander("1. Energía Natal Base", expanded=False):
-                d['interpretacion_sol_signo'] = st.text_area("El Sol", d.get('interpretacion_sol_signo',''), height=100)
-                d['interpretacion_luna_signo'] = st.text_area("La Luna", d.get('interpretacion_luna_signo',''), height=100)
-                d['interpretacion_asc_signo'] = st.text_area("El Ascendente", d.get('interpretacion_asc_signo',''), height=100)
+            with st.expander("1. Energía Base del Consultante", expanded=False):
+                d['interpretacion_sol_signo'] = st.text_area("Interpretación Natal del Sol", d.get('interpretacion_sol_signo',''), height=100)
+                d['interpretacion_luna_signo'] = st.text_area("Interpretación Natal de la Luna", d.get('interpretacion_luna_signo',''), height=100)
+                d['interpretacion_asc_signo'] = st.text_area("Interpretación Natal del Ascendente", d.get('interpretacion_asc_signo',''), height=100)
             
-            with st.expander("2. Análisis del Clima Anual", expanded=True):
-                d['frase_anual_corta'] = st.text_input("Lema Inspirador", d.get('frase_anual_corta',''))
-                d['analisis_clima_anual'] = st.text_area("Interpretación Evolutiva General", d.get('analisis_clima_anual',''), height=300)
-                d['oportunidad_anual'] = st.text_area("La Gran Oportunidad", d.get('oportunidad_anual',''), height=120)
-                d['atencion_anual'] = st.text_area("Punto de Atención Crítico", d.get('atencion_anual',''), height=120)
+            with st.expander("2. Análisis del Clima Astrológico Anual", expanded=True):
+                d['frase_anual_corta'] = st.text_input("Lema Inspirador del Año (Título Principal)", d.get('frase_anual_corta',''))
+                d['analisis_clima_anual'] = st.text_area("Interpretación General Evolutiva para los 12 meses", d.get('analisis_clima_anual',''), height=300)
+                d['oportunidad_anual'] = st.text_area("La Gran Oportunidad de Crecimiento Anual", d.get('oportunidad_anual',''), height=120)
+                d['atencion_anual'] = st.text_area("Punto de Atención Crítico y Cuidado Psicológico", d.get('atencion_anual',''), height=120)
 
             with st.expander("3. Calendario Detallado de Eventos Mensuales", expanded=True):
-                for m, evs in d.get('calendario_por_meses', {}).items():
-                    st.markdown(f"### 🗓️ {m}")
-                    for ev in evs:
-                        label = f"{ev.get('fecha', '')} | {ev.get('transito', '')} a {ev.get('natal', '')}"
-                        ev['texto_efecto'] = st.text_area(label, ev.get('texto_efecto', ''), key=f"tr_{m}_{ev.get('fecha','')}", height=100)
+                st.markdown("<p style='color: #666;'>Edita los efectos de los tránsitos específicos mes a mes:</p>", unsafe_allow_html=True)
+                for mes, eventos in d.get('calendario_por_meses', {}).items():
+                    st.markdown(f"### 🗓️ {mes}")
+                    for ev in eventos:
+                        etiqueta = f"{ev.get('fecha', '')} | {ev.get('transito', '')} {ev.get('aspecto', '')} a {ev.get('natal', '')}"
+                        ev['texto_efecto'] = st.text_area(etiqueta, ev.get('texto_efecto', ''), key=f"tr_{mes}_{ev.get('fecha','')}", height=100)
 
-        # --- SECCIONES CARTA NATAL ---
+        # --- SECCIONES CARTA NATAL (EXTENSIÓN MÁXIMA) ---
         else:
-            with st.expander("1. Tríada Sagrada de Identidad", expanded=True):
-                d['interpretacion_sol_signo'] = st.text_area("☉ El Propósito Solar", d.get('interpretacion_sol_signo',''), height=150)
-                d['interpretacion_luna_signo'] = st.text_area("☽ El Refugio Lunar", d.get('interpretacion_luna_signo',''), height=150)
-                d['interpretacion_asc_signo'] = st.text_area("AC El Camino del Ascendente", d.get('interpretacion_asc_signo',''), height=150)
+            with st.expander("1. Tríada Sagrada de Identidad (Sol, Luna y AC)", expanded=True):
+                d['interpretacion_sol_signo'] = st.text_area("☉ El Propósito Solar y la Esencia Vital", d.get('interpretacion_sol_signo',''), height=150)
+                d['interpretacion_luna_signo'] = st.text_area("☽ El Refugio Emocional y el Mecanismo de Seguridad", d.get('interpretacion_luna_signo',''), height=150)
+                d['interpretacion_asc_signo'] = st.text_area("AC El Camino de Integración del Ascendente", d.get('interpretacion_asc_signo',''), height=150)
             
-            with st.expander("2. Los Gigantes del Cielo", expanded=False):
+            with st.expander("2. Análisis de los Gigantes del Cielo", expanded=False):
                 if 'gigantes_del_cielo' in d:
                     for i, g in enumerate(d.get('gigantes_del_cielo', [])):
-                        g['texto'] = st.text_area(f"{g.get('nombre')} en {g.get('signo', '')}", g.get('texto', ''), key=f"g_{i}", height=120)
+                        g['texto'] = st.text_area(f"{g.get('nombre', 'Cuerpo')} en {g.get('signo', '')}", g.get('texto', ''), key=f"natal_g_{i}", height=100)
 
-            with st.expander("3. Síntesis Evolutiva y FODA Personal", expanded=True):
-                d['interpretacion_personalidad_global'] = st.text_area("Relato Final de Integración", d.get('interpretacion_personalidad_global',''), height=350)
-                f1, f2 = st.columns(2)
-                with f1:
-                    forts = st.text_area("Fortalezas (Uno por línea)", "\n".join(d['foda'].get('fortalezas', [])))
-                    d['foda']['fortalezas'] = forts.split("\n")
-                with f2:
-                    debs = st.text_area("Debilidades (Uno por línea)", "\n".join(d['foda'].get('debilidades', [])))
-                    d['foda']['debilidades'] = debs.split("\n")
+            with st.expander("3. Síntesis Evolutiva Global y FODA Personal", expanded=True):
+                d['interpretacion_personalidad_global'] = st.text_area("Relato Final de Integración de Personalidad", d.get('interpretacion_personalidad_global',''), height=350)
+                st.markdown("**Matriz de Potencial (FODA):**")
+                fcol1, fcol2 = st.columns(2)
+                with fcol1:
+                    f_text = st.text_area("Fortalezas (Una por línea)", "\n".join(d['foda'].get('fortalezas', [])))
+                    d['foda']['fortalezas'] = f_text.split("\n")
+                with fcol2:
+                    d_text = st.text_area("Debilidades (Una por línea)", "\n".join(d['foda'].get('debilidades', [])))
+                    d['foda']['debilidades'] = d_text.split("\n")
 
         # ==============================================================================
         # 8. PANEL DE ACCIONES FINALES (DESCARGA Y VISTA PREVIA)
         # ==============================================================================
         st.divider()
-        c_final1, c_final2 = st.columns(2)
+        c_fin1, c_fin2 = st.columns(2)
         
-        # Preparación de logo antes de generar el render
+        # Preparación de imágenes y logo antes de la generación final
         d['logo_base64'] = get_base_64_of_bin_file('apple-icon.png')
+        env_jinja = Environment(loader=FileSystemLoader('.'))
         
         try:
-            env = Environment(loader=FileSystemLoader('.'))
-            tmpl = env.get_template(st.session_state.plantilla_usar)
+            plantilla_final = env_jinja.get_template(st.session_state.plantilla_usar)
             
-            with c_final1:
-                if st.button("👁️ VER VISTA PREVIA"):
+            with c_fin1:
+                if st.button("👁️ VER VISTA PREVIA DEL DISEÑO"):
                     try: 
-                        html_render = tmpl.render(d)
+                        html_render = plantilla_final.render(d)
                         components.html(html_render, height=900, scrolling=True)
                     except Exception: 
                         st.error("Error al renderizar el diseño visual.")
 
-            with c_final2:
-                html_final = tmpl.render(d)
-                nombre_doc = f"Informe_{d.get('nombre_cliente', 'Consultante')}.html"
+            with c_fin2:
+                html_final = plantilla_final.render(d)
+                # Formateo del nombre del archivo final para Patricia
+                sufijo = "Transitos" if tipo == "TRANSITOS" else "Revolucion" if tipo == "REVOLUCION" else "Natal"
+                nombre_doc = f"Informe_Astroimpacto_{d.get('nombre_cliente', 'Cliente')}_{sufijo}.html"
+                
                 st.download_button("💾 DESCARGAR INFORME HTML FINAL", data=html_final, file_name=nombre_doc, mime="text/html", type="primary")
                 
                 if st.button("❌ FINALIZAR Y LIMPIAR TALLER"):
