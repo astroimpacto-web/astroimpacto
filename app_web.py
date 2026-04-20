@@ -245,6 +245,7 @@ if modo_app == "📅 Programar Cliente":
     st.markdown("## 📅 Agenda de Clientes")
     st.markdown("<p style='color: #B48E92; font-weight: 500;'>Asigna un tipo de reporte a un consultante para que aparezca en el Taller de trabajo.</p>", unsafe_allow_html=True)
     if not df_cli.empty:
+        # Usamos nombres normalizados por el mapeo anterior
         n_col = 'Nombres' if 'Nombres' in df_cli.columns else df_cli.columns[0]
         opciones_cli = [f"{row[n_col]} (ID: {row['id_consultante']})" for _, row in df_cli.iterrows() if 'id_consultante' in df_cli.columns]
         st.selectbox("1. Selecciona el Cliente de la base de datos:", opciones_cli)
