@@ -321,18 +321,16 @@ elif modo_app == "⚙️ Taller de Informes":
             st.sidebar.markdown("<br>", unsafe_allow_html=True)
             if st.sidebar.button("🚀 INICIAR PROCESAMIENTO", type="primary", use_container_width=True):
                 # BLINDAJE DE DATOS: Aseguramos que el motor reciba un diccionario con las llaves exactas
-                payload_motor = {
-                    "Nombres": cli_obj.get("Nombres", "Consultante"),
-                    "Fecha": cli_obj.get("Fecha"),
-                    "Hora": cli_obj.get("Hora"),
-                    "Latitud": cli_obj.get("Latitud"),
-                    "Longitud": cli_obj.get("Longitud"),
-                    "Genero": cli_obj.get("Genero", "M"),
-                    "Ciudad": cli_obj.get("Ciudad", ""),
-                    "Pais": cli_obj.get("Pais", "")
-                }
+                # Enviamos el objeto completo convertido a dict para que el motor busque lo que necesite
+                payload_motor = cli_obj.to_dict()
                 
-                faltantes = [k for k in ["Fecha", "Hora", "Latitud", "Longitud"] if pd.isna(payload_motor[k])]
+                # Forzamos la presencia de las llaves clave si existen en variantes
+                if "Fecha" in payload_motor: payload_motor["fecha"] = payload_motor["Fecha"]
+                if "Hora" in payload_motor: payload_motor["hora"] = payload_motor["Hora"]
+                if "Latitud" in payload_motor: payload_motor["lat"] = payload_motor["Latitud"]
+                if "Longitud" in payload_motor: payload_motor["lon"] = payload_motor["Longitud"]
+
+                faltantes = [k for k in ["Fecha", "Hora", "Latitud", "Longitud"] if k not in payload_motor or pd.isna(payload_motor[k])]
                 if faltantes:
                     st.sidebar.error(f"⚠️ Error: Faltan datos en el Excel ({', '.join(faltantes)})")
                 else:
@@ -353,12 +351,14 @@ elif modo_app == "⚙️ Taller de Informes":
                                 st.session_state.update({'datos_diccionario': datos, 'plantilla_usar': plant, 'textos_generados': True, 'idx_prog_actual': idx_p})
                                 st.rerun()
                             else:
+                                # Capturamos el error para que Patricia sepa qué pasó exactamente
                                 st.sidebar.error(f"⚠️ El motor falló: {plant}")
+                                st.sidebar.info("Consejo: Verifica tu conexión a OpenAI y tus créditos API.")
                         except Exception as e:
                             st.sidebar.error(f"❌ Error crítico: {e}")
 
     # ==============================================================================
-    # 7. PANEL DE EDICIÓN INTEGRAL (DETALLE MÁXIMO)
+    # 7. PANEL DE EDICIÓN INTEGRAL (DETALLE MÁXIMO - INTEGRIDAD TOTAL)
     # ==============================================================================
     if st.session_state.textos_generados:
         d = st.session_state.datos_diccionario
