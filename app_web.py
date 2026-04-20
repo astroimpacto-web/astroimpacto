@@ -62,7 +62,7 @@ if 'textos_generados' not in st.session_state:
         'tipo_reporte_actual': "NATAL", 'lat_rs_auto': "", 'lon_rs_auto': "", 'idx_prog_actual': None
     })
 
-# 3. CARGA DE GOOGLE SHEETS (CON PROTECCIÓN DE COLUMNAS)
+# 3. CARGA DE GOOGLE SHEETS
 @st.cache_data(ttl=5)
 def cargar_bases_web():
     try:
@@ -80,11 +80,9 @@ def cargar_bases_web():
         for df in [df_c, df_p, df_t]:
             if not df.empty:
                 df.columns = df.columns.str.strip()
-                # Buscar cualquier variante de ID y normalizar a 'id_consultante'
                 for col in ['id', 'Id', 'ID', 'ID_CONSULTANTE']:
                     if col in df.columns and 'id_consultante' not in df.columns:
                         df.rename(columns={col: 'id_consultante'}, inplace=True)
-                
                 if 'id_consultante' in df.columns:
                     df['id_consultante'] = df['id_consultante'].astype(str).str.replace('.0', '', regex=False).str.strip()
         return df_c, df_p, df_t
@@ -99,7 +97,6 @@ st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700
 modo_app = st.sidebar.radio("Menu", ["⚙️ Taller de Informes", "📅 Programar Cliente"], label_visibility="collapsed")
 st.sidebar.markdown("<hr/>", unsafe_allow_html=True)
 
-# VISOR DE DATOS TÉCNICOS
 if st.session_state.textos_generados:
     st.sidebar.markdown("### 🔍 Datos Técnicos Exactos")
     st.sidebar.code(st.session_state.datos_diccionario.get('auditoria_tecnica', 'Sin datos técnicos'), language='text')
@@ -146,19 +143,30 @@ elif modo_app == "⚙️ Taller de Informes":
             cli_obj = df_cli[df_cli['id_consultante'] == id_sel].iloc[0]
             id_t = str(row_p.get('Id_Informe', '1')).replace('.0', '').strip()
 
+            # --- PARTE RECUPERADA: RELOCALIZACIÓN RS ---
             lat_rs, lon_rs, lug_rs = None, None, None
-            if id_t == "3": # REVOLUCIÓN SOLAR
-                st.sidebar.markdown("📍 **RELOCALIZACIÓN RS**")
-                lug_rs = st.sidebar.text_input("Ubicación actual:", placeholder="Ej: Buenos Aires, AR")
-                if st.sidebar.button("🔍 Buscar Coordenadas", use_container_width=True):
+            if id_t == "3": 
+                st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
+                st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px; margin-bottom:0;'>📍 RELOCALIZACIÓN RS</p>", unsafe_allow_html=True)
+                lug_rs = st.sidebar.text_input("Ubicación actual:", placeholder="Ej: Madrid, España")
+                
+                if st.sidebar.button("🔍 Buscar en Mapa", use_container_width=True):
                     if lug_rs:
-                        try:
-                            loc = Nominatim(user_agent="astro").geocode(lug_rs)
-                            if loc: st.session_state.update({'lat_rs_auto': str(loc.latitude), 'lon_rs_auto': str(loc.longitude)})
-                        except Exception:
-                            st.sidebar.error("Error buscando el lugar.")
-                lat_rs = st.sidebar.text_input("Lat:", value=st.session_state.lat_rs_auto)
-                lon_rs = st.sidebar.text_input("Lon:", value=st.session_state.lon_rs_auto)
+                        with st.spinner("Buscando coordenadas..."):
+                            try:
+                                loc = Nominatim(user_agent="astroimpacto_web").geocode(lug_rs)
+                                if loc:
+                                    st.session_state.lat_rs_auto = str(loc.latitude)
+                                    st.session_state.lon_rs_auto = str(loc.longitude)
+                                    st.sidebar.success(f"¡Listo! {loc.address}")
+                                else:
+                                    st.sidebar.error("Lugar no encontrado.")
+                            except Exception:
+                                st.sidebar.error("Error conectando con el mapa.")
+                
+                lat_rs = st.sidebar.text_input("Latitud:", value=st.session_state.lat_rs_auto)
+                lon_rs = st.sidebar.text_input("Longitud:", value=st.session_state.lon_rs_auto)
+            # ------------------------------------------
 
             if st.sidebar.button("🚀 PROCESAR INFORME", type="primary", use_container_width=True):
                 with st.spinner("Calculando efemérides y redactando..."):
@@ -176,7 +184,7 @@ elif modo_app == "⚙️ Taller de Informes":
                         st.session_state.update({'datos_diccionario': datos, 'plantilla_usar': plant, 'textos_generados': True, 'idx_prog_actual': idx_p})
                         st.rerun()
 
-    # 7. PANEL DE EDICIÓN COMPLETA
+    # 7. PANEL DE EDICIÓN COMPLETA (MÁXIMA INTEGRIDAD)
     if st.session_state.textos_generados:
         d = st.session_state.datos_diccionario
         tipo = st.session_state.tipo_reporte_actual
