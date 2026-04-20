@@ -178,11 +178,7 @@ if 'textos_generados' not in st.session_state:
 # ==============================================================================
 @st.cache_data(ttl=5)
 def cargar_bases_web():
-    """
-    Descarga datos de Sheets y unifica nombres de columnas.
-    Esta función mapea todas las posibles variaciones de nombres de columnas 
-    para evitar el error de 'Datos Incompletos'.
-    """
+    """Descarga datos de Sheets y unifica nombres de columnas para evitar KeyError y 'Datos Incompletos'."""
     try:
         url_secreta = st.secrets["connections"]["gsheets"]["spreadsheet"]
         sheet_id = url_secreta.split("/d/")[1].split("/")[0] if "/d/" in url_secreta else url_secreta
@@ -194,26 +190,31 @@ def cargar_bases_web():
         df_c = pd.read_csv(u_cli).dropna(how="all")
         df_p = pd.read_csv(u_prog).dropna(how="all")
 
-        # Diccionario de Mapeo Inteligente (Sinónimos de Excel)
-        mapa_columnas = {
-            'id_consultante': ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli', 'id_consultante', 'CODIGO'],
-            'Fecha': ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac', 'FECHA NACIMIENTO', 'FECHA_NACIMIENTO'],
-            'Hora': ['hora', 'HORA', 'BirthTime', 'Hora_Nac', 'HORA NACIMIENTO', 'HORA_NACIMIENTO', 'TIEMPO'],
-            'Latitud': ['lat', 'latitud', 'LATITUD', 'Lat', 'LAT', 'COOR_LAT', 'LAT_NAC'],
-            'Longitud': ['lon', 'longitud', 'LONGITUD', 'Lon', 'Lng', 'lng', 'LON', 'COOR_LON', 'LON_NAC'],
-            'Nombres': ['Nombre', 'NOMBRE', 'Nombres', 'NAME', 'Consultante', 'CLIENTE']
-        }
-
-        # Aplicar Mapeo a ambos DataFrames
+        # Normalización Universal de Columnas para asegurar que el motor reciba lo que necesita
         for df in [df_c, df_p]:
             if not df.empty:
                 df.columns = df.columns.str.strip()
-                for destino, sinonimos in mapa_columnas.items():
-                    for s in sinonimos:
-                        if s in df.columns and destino not in df.columns:
-                            df.rename(columns={s: destino}, inplace=True)
+                # Unificar variantes de Identificador
+                for c in ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli', 'id_consultante']:
+                    if c in df.columns and 'id_consultante' not in df.columns:
+                        df.rename(columns={c: 'id_consultante'}, inplace=True)
+                # Unificar variantes de Fecha
+                for c in ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac', 'FECHA NACIMIENTO']:
+                    if c in df.columns and 'Fecha' not in df.columns:
+                        df.rename(columns={c: 'Fecha'}, inplace=True)
+                # Unificar variantes de Hora
+                for c in ['hora', 'HORA', 'BirthTime', 'Hora_Nac', 'HORA NACIMIENTO']:
+                    if c in df.columns and 'Hora' not in df.columns:
+                        df.rename(columns={c: 'Hora'}, inplace=True)
+                # Unificar variantes de Latitud
+                for c in ['lat', 'latitud', 'LATITUD', 'Lat', 'LAT']:
+                    if c in df.columns and 'Latitud' not in df.columns:
+                        df.rename(columns={c: 'Latitud'}, inplace=True)
+                # Unificar variantes de Longitud
+                for c in ['lon', 'longitud', 'LONGITUD', 'Lon', 'Lng', 'lng', 'LON']:
+                    if c in df.columns and 'Longitud' not in df.columns:
+                        df.rename(columns={c: 'Longitud'}, inplace=True)
                 
-                # Normalización de IDs para evitar fallos de búsqueda
                 if 'id_consultante' in df.columns:
                     df['id_consultante'] = df['id_consultante'].astype(str).str.replace('.0', '', regex=False).str.strip()
         
@@ -245,13 +246,11 @@ if modo_app == "📅 Programar Cliente":
     st.markdown("## 📅 Agenda de Clientes")
     st.markdown("<p style='color: #B48E92; font-weight: 500;'>Asigna un tipo de reporte a un consultante para que aparezca en el Taller.</p>", unsafe_allow_html=True)
     if not df_cli.empty:
-        # Usamos nombres normalizados por el mapeo anterior
-        n_col = 'Nombres' if 'Nombres' in df_cli.columns else df_cli.columns[1]
-        opciones_cli = [f"{row[n_col]} (ID: {row['id_consultante']})" for _, row in df_cli.iterrows() if 'id_consultante' in df_cli.columns]
+        opciones_cli = [f"{row['Nombres']} (ID: {row['id_consultante']})" for _, row in df_cli.iterrows() if 'Nombres' in row]
         st.selectbox("1. Selecciona el Cliente:", opciones_cli)
         st.selectbox("2. Tipo de Informe:", ["Carta Natal", "Tránsitos Anuales", "Revolución Solar"])
         if st.button("➕ Programar", type="primary"):
-            st.info("Nota: En esta versión web, agrega la fila en tu Google Sheet y recarga la página para procesarla.")
+            st.info("Añade la fila en tu Google Sheet y recarga la página para procesarla.")
     else:
         st.warning("No se cargaron consultantes. Revisa tu archivo de Google Sheets.")
 
@@ -261,9 +260,8 @@ if modo_app == "📅 Programar Cliente":
 elif modo_app == "⚙️ Taller de Informes":
     if not st.session_state.textos_generados:
         st.markdown("## ⚙️ Taller de Informes")
-        st.markdown("<p style='color: #B48E92; font-weight: 500;'>Procesa efemérides en tiempo real y genera borradores interpretativos profesionales.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #B48E92; font-weight: 500;'>Genera interpretaciones personalizadas basadas en efemérides exactas.</p>", unsafe_allow_html=True)
 
-    # Filtrar solo informes pendientes
     pendientes = df_prog[df_prog['Estado'].astype(str).str.upper() == 'PENDIENTE'] if not df_prog.empty and 'Estado' in df_prog.columns else pd.DataFrame()
 
     if pendientes.empty and not st.session_state.textos_generados:
@@ -275,10 +273,7 @@ elif modo_app == "⚙️ Taller de Informes":
             if 'id_consultante' in row:
                 id_c = str(row['id_consultante']).strip()
                 cli_data = df_cli[df_cli['id_consultante'] == id_c] if not df_cli.empty else pd.DataFrame()
-                
-                n_col_cli = 'Nombres' if 'Nombres' in cli_data.columns else cli_data.columns[1] if not cli_data.empty else ""
-                nombre_cli = cli_data.iloc[0][n_col_cli] if not cli_data.empty else f"ID: {id_c}"
-                
+                nombre_cli = cli_data.iloc[0].get('Nombres', 'Consultante') if not cli_data.empty else f"ID: {id_c}"
                 id_tipo_inf = str(row.get('Id_Informe', '1')).replace('.0', '').strip()
                 tipo_txt = "Natal" if id_tipo_inf == "1" else "Transitos" if id_tipo_inf == "2" else "Revolucion"
                 opciones_menu.append(f"{nombre_cli} ({tipo_txt}) | Fila: {idx}")
@@ -291,46 +286,33 @@ elif modo_app == "⚙️ Taller de Informes":
             cli_obj = df_cli[df_cli['id_consultante'] == id_sel].iloc[0]
             id_t = str(row_p.get('Id_Informe', '1')).replace('.0', '').strip()
 
-            # --- PANEL DE DIAGNÓSTICO DE DATOS (ANTELACIÓN AL ERROR) ---
+            # --- PANEL DE DIAGNÓSTICO DE DATOS (Mantenemos para seguridad) ---
             st.sidebar.markdown("<p style='font-size:0.7rem; font-weight:700; margin-top:10px;'>📊 DIAGNÓSTICO DE DATOS</p>", unsafe_allow_html=True)
             check_fecha = "✅" if "Fecha" in cli_obj and not pd.isna(cli_obj["Fecha"]) else "❌"
             check_hora = "✅" if "Hora" in cli_obj and not pd.isna(cli_obj["Hora"]) else "❌"
             check_lat = "✅" if "Latitud" in cli_obj and not pd.isna(cli_obj["Latitud"]) else "❌"
             check_lon = "✅" if "Longitud" in cli_obj and not pd.isna(cli_obj["Longitud"]) else "❌"
             
-            diag_html = f"""
-            <div class='diag-box'>
-                <div class='diag-item'><span>Fecha:</span> <span>{check_fecha}</span></div>
-                <div class='diag-item'><span>Hora:</span> <span>{check_hora}</span></div>
-                <div class='diag-item'><span>Latitud:</span> <span>{check_lat}</span></div>
-                <div class='diag-item'><span>Longitud:</span> <span>{check_lon}</span></div>
-            </div>
-            """
+            diag_html = f"""<div class='diag-box'><div class='diag-item'><span>Fecha:</span> <span>{check_fecha}</span></div><div class='diag-item'><span>Hora:</span> <span>{check_hora}</span></div><div class='diag-item'><span>Latitud:</span> <span>{check_lat}</span></div><div class='diag-item'><span>Longitud:</span> <span>{check_lon}</span></div></div>"""
             st.sidebar.markdown(diag_html, unsafe_allow_html=True)
 
-            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (PARTE CRÍTICA) ---
+            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR ---
             lat_rs, lon_rs, lug_final = None, None, ""
             if id_t == "3" or "Revolucion" in sel_p: 
                 st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
                 st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px; margin-bottom:0;'>📍 RELOCALIZACIÓN RS</p>", unsafe_allow_html=True)
-                st.sidebar.caption("Ingresa ciudad y país para buscar coordenadas exactas.")
-                
                 lug_rs_input = st.sidebar.text_input("Ciudad de la Revolución:", placeholder="Ej: Madrid, España", key="ciudad_rs_search")
-                
                 if st.sidebar.button("🔍 Buscar en Mapa Global", use_container_width=True):
                     if lug_rs_input:
                         with st.spinner("Buscando coordenadas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astroimpacto_premium_final_v2")
+                                geolocator = Nominatim(user_agent="astroimpacto_premium_final_v500")
                                 loc = geolocator.geocode(lug_rs_input)
                                 if loc:
-                                    st.session_state.lat_rs_auto = str(loc.latitude)
-                                    st.session_state.lon_rs_auto = str(loc.longitude)
-                                    st.session_state.lugar_rs_confirmado = loc.address
+                                    st.session_state.lat_rs_auto, st.session_state.lon_rs_auto, st.session_state.lugar_rs_confirmado = str(loc.latitude), str(loc.longitude), loc.address
                                     st.sidebar.success(f"Listo: {loc.address}")
                                 else: st.sidebar.error("Lugar no encontrado.")
-                            except Exception: st.sidebar.error("Error temporal del mapa.")
-                
+                            except Exception: st.sidebar.error("Error de conexión.")
                 lat_rs = st.sidebar.text_input("Latitud de la RS:", value=st.session_state.lat_rs_auto)
                 lon_rs = st.sidebar.text_input("Longitud de la RS:", value=st.session_state.lon_rs_auto)
                 lug_final = st.session_state.lugar_rs_confirmado if st.session_state.lugar_rs_confirmado else lug_rs_input
@@ -338,149 +320,123 @@ elif modo_app == "⚙️ Taller de Informes":
 
             st.sidebar.markdown("<br>", unsafe_allow_html=True)
             if st.sidebar.button("🚀 INICIAR PROCESAMIENTO", type="primary", use_container_width=True):
-                # Validación final antes de enviar al motor
-                faltantes = [k for k in ['Fecha', 'Hora', 'Latitud', 'Longitud'] if k not in cli_obj or pd.isna(cli_obj[k])]
+                # BLINDAJE DE DATOS: Aseguramos que el motor reciba un diccionario con las llaves exactas
+                payload_motor = {
+                    "Nombres": cli_obj.get("Nombres", "Consultante"),
+                    "Fecha": cli_obj.get("Fecha"),
+                    "Hora": cli_obj.get("Hora"),
+                    "Latitud": cli_obj.get("Latitud"),
+                    "Longitud": cli_obj.get("Longitud"),
+                    "Genero": cli_obj.get("Genero", "M"),
+                    "Ciudad": cli_obj.get("Ciudad", ""),
+                    "Pais": cli_obj.get("Pais", "")
+                }
                 
+                faltantes = [k for k in ["Fecha", "Hora", "Latitud", "Longitud"] if pd.isna(payload_motor[k])]
                 if faltantes:
-                    st.sidebar.error(f"⚠️ No se puede procesar. Faltan estos datos en el Excel: {', '.join(faltantes)}")
-                    st.sidebar.info("Asegúrate de que las columnas en tu Excel tengan nombres claros como 'Fecha', 'Hora', 'Latitud' y 'Longitud'.")
+                    st.sidebar.error(f"⚠️ Error: Faltan datos en el Excel ({', '.join(faltantes)})")
                 else:
                     with st.spinner("Calculando efemérides y redactando informe integral..."):
                         try:
                             datos, plant = None, None
-                            # Limpieza total del objeto cliente para evitar fallos de tipos de datos
-                            cli_clean = {k: v for k, v in cli_obj.to_dict().items()}
-                            
                             if id_t == "2":
                                 st.session_state.tipo_reporte_actual = "TRANSITOS"
-                                datos, plant = motor_web.procesar_transitos_con_ia(cli_clean, None, id_sel)
+                                datos, plant = motor_web.procesar_transitos_con_ia(payload_motor, None, id_sel)
                             elif id_t == "3" or "Revolucion" in sel_p:
                                 st.session_state.tipo_reporte_actual = "REVOLUCION"
-                                datos, plant = motor_web.procesar_rs_con_ia(cli_clean, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
+                                datos, plant = motor_web.procesar_rs_con_ia(payload_motor, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
                             else:
                                 st.session_state.tipo_reporte_actual = "NATAL"
-                                datos, plant = motor_web.procesar_natal_con_ia(cli_clean, None, id_sel)
+                                datos, plant = motor_web.procesar_natal_con_ia(payload_motor, None, id_sel)
                             
                             if datos:
                                 st.session_state.update({'datos_diccionario': datos, 'plantilla_usar': plant, 'textos_generados': True, 'idx_prog_actual': idx_p})
                                 st.rerun()
                             else:
                                 st.sidebar.error(f"⚠️ El motor falló: {plant}")
-                                st.sidebar.info("Consejo: Verifica tu conexión a OpenAI y tus créditos API.")
                         except Exception as e:
-                            st.sidebar.error(f"❌ Error crítico inesperado: {e}")
+                            st.sidebar.error(f"❌ Error crítico: {e}")
 
     # ==============================================================================
-    # 7. PANEL DE EDICIÓN INTEGRAL (INTEGRIDAD TOTAL - 480+ LÍNEAS)
+    # 7. PANEL DE EDICIÓN INTEGRAL (DETALLE MÁXIMO)
     # ==============================================================================
     if st.session_state.textos_generados:
         d = st.session_state.datos_diccionario
         tipo = st.session_state.tipo_reporte_actual
         st.subheader(f"Editando: {d.get('titulo_informe')} - {d.get('nombre_cliente')}")
-        st.info("Revisa y personaliza cada sección del borrador generado por la IA.")
-
-        # --- SECCIONES REVOLUCIÓN SOLAR (DETALLE MÁXIMO) ---
+        
         if tipo == "REVOLUCION":
-            with st.expander("1. Infografía Inicial (Síntesis de Retos)", expanded=False):
+            with st.expander("1. Infografía Inicial", expanded=False):
                 col1, col2 = st.columns(2)
                 with col1:
-                    d['perspectivas']['transformacion'] = st.text_area("El Gran Reto Anual", d['perspectivas'].get('transformacion', ''), height=100)
-                    d['perspectivas']['cambio'] = st.text_area("Área de Cambio Principal", d['perspectivas'].get('cambio', ''), height=100)
+                    d['perspectivas']['transformacion'] = st.text_area("Transformación", d['perspectivas'].get('transformacion', ''))
+                    d['perspectivas']['cambio'] = st.text_area("Cambio Principal", d['perspectivas'].get('cambio', ''))
                 with col2:
-                    d['perspectivas']['oportunidades'] = st.text_area("Mayores Oportunidades", d['perspectivas'].get('oportunidades', ''), height=100)
-                    d['perspectivas']['relaciones'] = st.text_area("Clima Vincular", d['perspectivas'].get('relaciones', ''), height=100)
-            
-            with st.expander("2. Introducción y Bases (Natal / Tránsitos / Progresiones)", expanded=False):
-                d['intro_texto'] = st.text_area("Texto de Introducción al Informe", d.get('intro_texto',''), height=100)
-                d['carta_natal_resumen'] = st.text_area("Resumen Psicológico Natal", d.get('carta_natal_resumen',''), height=150)
-                d['transitos_personales'] = st.text_area("Análisis de Tránsitos Lentos", d.get('transitos_personales',''), height=150)
-                d['progresiones_secundarias'] = st.text_area("Interpretación de Progresiones", d.get('progresiones_secundarias',''), height=150)
-                tips_p = st.text_area("Consejos Progresiones (Uno por línea)", "\n".join(d.get('como_actuar_progresiones', [])))
-                d['como_actuar_progresiones'] = tips_p.split("\n")
-
-            with st.expander("3. Revolución Solar (General y Profesional)", expanded=True):
-                d['revolucion_solar_general_1'] = st.text_area("Interpretación General de la RS", d.get('revolucion_solar_general_1',''), height=250)
-                propuestas_revo = st.text_area("Propuestas del Año (Uno por línea)", "\n".join(d.get('revo_propone', [])))
-                d['revo_propone'] = propuestas_revo.split("\n")
-                d['situacion_laboral_economica'] = st.text_area("Panorama Profesional y Económico", d.get('situacion_laboral_economica',''), height=180)
-                objs_lab = st.text_area("Objetivos Laborales (Uno por línea)", "\n".join(d.get('logro_objetivos_profesionales', [])))
-                d['logro_objetivos_profesionales'] = objs_lab.split("\n")
-
-            with st.expander("4. Emocional, Trimestral y Cierre", expanded=True):
-                d['situacion_emocional'] = st.text_area("Vida Afectiva y Familiar", d.get('situacion_emocional',''), height=180)
-                st.markdown("**Cronograma Trimestral:**")
+                    d['perspectivas']['oportunidades'] = st.text_area("Oportunidades", d['perspectivas'].get('oportunidades', ''))
+                    d['perspectivas']['relaciones'] = st.text_area("Relaciones", d['perspectivas'].get('relaciones', ''))
+            with st.expander("2. Introducción y Bases Astrológicas", expanded=False):
+                d['intro_texto'] = st.text_area("Introducción", d.get('intro_texto',''))
+                d['carta_natal_resumen'] = st.text_area("Resumen Natal", d.get('carta_natal_resumen',''), height=150)
+                d['transitos_personales'] = st.text_area("Análisis Tránsitos", d.get('transitos_personales',''), height=150)
+                d['progresiones_secundarias'] = st.text_area("Interpretación Progresiones", d.get('progresiones_secundarias',''), height=150)
+                d['como_actuar_progresiones'] = st.text_area("Consejos (Líneas)", "\n".join(d.get('como_actuar_progresiones', []))).split("\n")
+            with st.expander("3. Revolución Solar (Detalle)", expanded=True):
+                d['revolucion_solar_general_1'] = st.text_area("Clima RS", d.get('revolucion_solar_general_1',''), height=250)
+                d['revo_propone'] = st.text_area("Propuestas (Líneas)", "\n".join(d.get('revo_propone', []))).split("\n")
+                d['situacion_laboral_economica'] = st.text_area("Área Laboral", d.get('situacion_laboral_economica',''), height=180)
+                d['logro_objetivos_profesionales'] = st.text_area("Objetivos Laborales (Líneas)", "\n".join(d.get('logro_objetivos_profesionales', []))).split("\n")
+            with st.expander("4. Emocional y Trimestral", expanded=True):
+                d['situacion_emocional'] = st.text_area("Vida Afectiva", d.get('situacion_emocional',''), height=180)
                 if 'panorama_trimestral' in d:
                     for i, t in enumerate(d.get('panorama_trimestral', [])):
                         t['texto'] = st.text_area(f"📍 {t.get('titulo')}", t.get('texto', ''), key=f"rs_t_{i}", height=120)
-                plan_acc = st.text_area("Plan de Acción Final (Uno por línea)", "\n".join(d.get('plan_accion_objetivos', [])))
-                d['plan_accion_objetivos'] = plan_acc.split("\n")
+                d['plan_accion_objetivos'] = st.text_area("Plan Acción (Líneas)", "\n".join(d.get('plan_accion_objetivos', []))).split("\n")
 
-        # --- SECCIONES TRÁNSITOS ANUALES (DETALLE MÁXIMO) ---
         elif tipo == "TRANSITOS":
-            with st.expander("1. Energía Base del Consultante", expanded=False):
-                d['interpretacion_sol_signo'] = st.text_area("Propósito Natal (Sol)", d.get('interpretacion_sol_signo',''), height=100)
-                d['interpretacion_luna_signo'] = st.text_area("Refugio Natal (Luna)", d.get('interpretacion_luna_signo',''), height=100)
-                d['interpretacion_asc_signo'] = st.text_area("Camino Natal (AC)", d.get('interpretacion_asc_signo',''), height=100)
-            
-            with st.expander("2. Análisis del Clima Anual", expanded=True):
+            with st.expander("1. Energía Natal Base", expanded=False):
+                d['interpretacion_sol_signo'] = st.text_area("Sol", d.get('interpretacion_sol_signo',''))
+                d['interpretacion_luna_signo'] = st.text_area("Luna", d.get('interpretacion_luna_signo',''))
+                d['interpretacion_asc_signo'] = st.text_area("Ascendente", d.get('interpretacion_asc_signo',''))
+            with st.expander("2. Clima Anual Astrológico", expanded=True):
                 d['frase_anual_corta'] = st.text_input("Lema del Año", d.get('frase_anual_corta',''))
-                d['analisis_clima_anual'] = st.text_area("Interpretación Evolutiva General", d.get('analisis_clima_anual',''), height=300)
-                d['oportunidad_anual'] = st.text_area("Mayor Oportunidad del Ciclo", d.get('oportunidad_anual',''), height=120)
-                d['atencion_anual'] = st.text_area("Punto de Atención y Cuidado", d.get('atencion_anual',''), height=120)
+                d['analisis_clima_anual'] = st.text_area("Interpretación Evolutiva", d.get('analisis_clima_anual',''), height=300)
+                d['oportunidad_anual'] = st.text_area("Oportunidad", d.get('oportunidad_anual',''), height=120)
+                d['atencion_anual'] = st.text_area("Punto de Cuidado", d.get('atencion_anual',''), height=120)
+            with st.expander("3. Calendario de Eventos Mensuales", expanded=True):
+                for m, evs in d.get('calendario_por_meses', {}).items():
+                    st.markdown(f"### 🗓️ {m}")
+                    for ev in evs:
+                        ev['texto_efecto'] = st.text_area(f"{ev.get('fecha')} | {ev.get('transito')} a {ev.get('natal')}", ev.get('texto_efecto', ''), key=f"tr_{m}_{ev.get('fecha','')}")
 
-            with st.expander("3. Calendario Mensual de Eventos", expanded=True):
-                for mes, eventos in d.get('calendario_por_meses', {}).items():
-                    st.markdown(f"### 🗓️ {mes}")
-                    for ev in eventos:
-                        label = f"{ev.get('fecha', '')} | {ev.get('transito', '')} a {ev.get('natal', '')}"
-                        ev['texto_efecto'] = st.text_area(label, ev.get('texto_efecto', ''), key=f"tr_{mes}_{ev.get('fecha','')}", height=100)
-
-        # --- SECCIONES CARTA NATAL (DETALLE MÁXIMO) ---
-        else:
+        else: # NATAL
             with st.expander("1. Tríada Sagrada de Identidad", expanded=True):
-                d['interpretacion_sol_signo'] = st.text_area("☉ El Propósito Solar", d.get('interpretacion_sol_signo',''), height=150)
-                d['interpretacion_luna_signo'] = st.text_area("☽ El Refugio Lunar", d.get('interpretacion_luna_signo',''), height=150)
-                d['interpretacion_asc_signo'] = st.text_area("AC El Camino del Ascendente", d.get('interpretacion_asc_signo',''), height=150)
-            
+                d['interpretacion_sol_signo'] = st.text_area("☉ Propósito Solar", d.get('interpretacion_sol_signo',''), height=150)
+                d['interpretacion_luna_signo'] = st.text_area("☽ Refugio Lunar", d.get('interpretacion_luna_signo',''), height=150)
+                d['interpretacion_asc_signo'] = st.text_area("AC Camino del Ascendente", d.get('interpretacion_asc_signo',''), height=150)
             with st.expander("2. Los Gigantes del Cielo", expanded=False):
                 if 'gigantes_del_cielo' in d:
                     for i, g in enumerate(d.get('gigantes_del_cielo', [])):
-                        g['texto'] = st.text_area(f"{g.get('nombre')} en {g.get('signo', '')}", g.get('texto', ''), key=f"g_{i}", height=100)
-
-            with st.expander("3. Síntesis Evolutiva y FODA", expanded=True):
+                        g['texto'] = st.text_area(f"{g.get('nombre')} en {g.get('signo', '')}", g.get('texto', ''), key=f"g_{i}", height=120)
+            with st.expander("3. Síntesis y FODA Personal", expanded=True):
                 d['interpretacion_personalidad_global'] = st.text_area("Relato Final de Integración", d.get('interpretacion_personalidad_global',''), height=350)
-                st.markdown("**Matriz de Potencial (FODA):**")
                 f1, f2 = st.columns(2)
-                with f1:
-                    forts = st.text_area("Fortalezas (Líneas)", "\n".join(d['foda'].get('fortalezas', [])))
-                    d['foda']['fortalezas'] = forts.split("\n")
-                with f2:
-                    debs = st.text_area("Debilidades (Líneas)", "\n".join(d['foda'].get('debilidades', [])))
-                    d['foda']['debilidades'] = debs.split("\n")
+                with f1: d['foda']['fortalezas'] = st.text_area("Fortalezas", "\n".join(d['foda'].get('fortalezas', []))).split("\n")
+                with f2: d['foda']['debilidades'] = st.text_area("Debilidades", "\n".join(d['foda'].get('debilidades', []))).split("\n")
 
-        # ==============================================================================
-        # 8. PANEL DE ACCIONES FINALES (DESCARGA Y VISTA PREVIA)
-        # ==============================================================================
         st.divider()
-        c_final1, c_final2 = st.columns(2)
+        c1, c2 = st.columns(2)
         d['logo_base64'] = get_base_64_of_bin_file('apple-icon.png')
-        env = Environment(loader=FileSystemLoader('.'))
-        
         try:
-            plantilla_final = env.get_template(st.session_state.plantilla_usar)
-            with c_final1:
+            env = Environment(loader=FileSystemLoader('.'))
+            tmpl = env.get_template(st.session_state.plantilla_usar)
+            with c1:
                 if st.button("👁️ VER VISTA PREVIA"):
-                    try: 
-                        html_render = plantilla_final.render(d)
-                        components.html(html_render, height=900, scrolling=True)
-                    except Exception: 
-                        st.error("Error al renderizar el diseño visual.")
-            with c_final2:
-                html_final = plantilla_final.render(d)
-                nombre_doc = f"Informe_{d.get('nombre_cliente', 'Consultante')}.html"
-                st.download_button("💾 DESCARGAR INFORME HTML FINAL", data=html_final, file_name=nombre_doc, mime="text/html", type="primary")
+                    try: components.html(tmpl.render(d), height=900, scrolling=True)
+                    except Exception: st.error("Error render.")
+            with c2:
+                html_final = tmpl.render(d)
+                st.download_button("💾 DESCARGAR INFORME HTML FINAL", data=html_final, file_name=f"Informe_{d.get('nombre_cliente', 'Consultante')}.html", mime="text/html", type="primary")
                 if st.button("❌ FINALIZAR Y LIMPIAR TALLER"):
                     st.session_state.textos_generados = False
                     st.rerun()
-        except Exception as e:
-            st.error(f"Error cargando la plantilla HTML: {e}")
+        except Exception as e: st.error(f"Error plantilla: {e}")
