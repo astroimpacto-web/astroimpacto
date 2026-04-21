@@ -60,10 +60,76 @@ def deg_to_dms_sign(lon):
     return f"{grados:02d}° {signos[signo_idx]} {minutos:02d}'"
 
 def limpiar_coordenada(val):
+    """
+    Convierte coordenadas al decimal que necesita swisseph.
+    Soporta:
+      - Número decimal: -33.25  →  -33.25
+      - Formato '33.25.00 S'   →  -33.4167  (formato del Google Sheet)
+      - Con hemisferio S/W = negativo, N/E = positivo
+    """
+    if val is None:
+        return 0.0
     try:
         return float(val)
-    except:
+    except (ValueError, TypeError):
+        pass
+    try:
+        s = str(val).strip().upper()
+        negativo = False
+        for hem in ['S', 'W']:
+            if s.endswith(hem) or s.endswith(' ' + hem):
+                negativo = True
+                s = s.replace(hem, '').strip()
+                break
+        for hem in ['N', 'E']:
+            if s.endswith(hem) or s.endswith(' ' + hem):
+                s = s.replace(hem, '').strip()
+                break
+        partes   = s.strip().split('.')
+        grados   = float(partes[0]) if len(partes) > 0 else 0.0
+        minutos  = float(partes[1]) if len(partes) > 1 else 0.0
+        segundos = float(partes[2]) if len(partes) > 2 else 0.0
+        decimal  = grados + minutos / 60.0 + segundos / 3600.0
+        return -decimal if negativo else decimal
+    except Exception:
         return 0.0
+
+
+def limpiar_hora(val):
+    """
+    Convierte hora al decimal que necesita swisseph.
+    Soporta: decimal 14.5, HH:MM:SS '20:40:00', HH:MM '7:27'
+    """
+    if val is None:
+        return 12.0
+    try:
+        return float(val)
+    except (ValueError, TypeError):
+        pass
+    try:
+        partes = str(val).strip().split(':')
+        h   = float(partes[0]) if len(partes) > 0 else 12.0
+        m   = float(partes[1]) if len(partes) > 1 else 0.0
+        seg = float(partes[2]) if len(partes) > 2 else 0.0
+        return h + m / 60.0 + seg / 3600.0
+    except Exception:
+        return 12.0
+
+
+def limpiar_fecha(val):
+    """
+    Parsea fechas DD-MM-AAAA correctamente (dayfirst=True).
+    Sin esto pd.to_datetime interpreta 10-05-2006 como 10 de mayo en EE.UU.
+    pero falla con días > 12.
+    """
+    try:
+        return pd.to_datetime(val, dayfirst=True)
+    except Exception:
+        try:
+            return pd.to_datetime(val)
+        except Exception:
+            return None
+
 
 def diferencia_angular(a, b):
     """Diferencia angular mínima entre dos longitudes."""
@@ -90,8 +156,10 @@ def obtener_datos_astrologicos(jd, lat, lon):
 
 def calcular_posiciones_base_completa(cliente):
     """Calcula posiciones natales completas a partir del diccionario del cliente."""
-    f   = pd.to_datetime(cliente.get('Fecha'))
-    h   = float(cliente.get('Hora', 12.0))
+    f   = limpiar_fecha(cliente.get('Fecha'))
+    if f is None:
+        raise ValueError(f"No se pudo parsear la fecha: {cliente.get('Fecha')}")
+    h   = limpiar_hora(cliente.get('Hora', '12:00:00'))
     lat = limpiar_coordenada(cliente.get('Latitud', 0))
     lon = limpiar_coordenada(cliente.get('Longitud', 0))
     jd  = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
@@ -117,12 +185,14 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
 
         # 1. DATOS NATALES
         try:
-            f_nac = pd.to_datetime(cliente.get('Fecha'))
-            h_nac = float(cliente.get('Hora', 12.0))
+            f_nac = limpiar_fecha(cliente.get('Fecha'))
+            if f_nac is None:
+                return None, "Error: No se pudo parsear la fecha de nacimiento."
+            h_nac = limpiar_hora(cliente.get('Hora', '12:00:00'))
             lat_n = limpiar_coordenada(cliente.get('Latitud', 0))
             lon_n = limpiar_coordenada(cliente.get('Longitud', 0))
-        except Exception:
-            return None, "Error: Datos de nacimiento incompletos para cálculos matemáticos."
+        except Exception as ex:
+            return None, f"Error: Datos de nacimiento incompletos para cálculos matemáticos. Detalle: {ex}"
 
         # 2. POSICIONES NATALES
         jd_nat = swe.julday(f_nac.year, f_nac.month, f_nac.day, h_nac, swe.GREG_CAL)
