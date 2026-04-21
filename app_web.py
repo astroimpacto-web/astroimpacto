@@ -187,14 +187,13 @@ def cargar_bases_web():
         url_secreta = st.secrets["connections"]["gsheets"]["spreadsheet"]
         sheet_id = url_secreta.split("/d/")[1].split("/")[0] if "/d/" in url_secreta else url_secreta
         
-        # Generar URLs de descarga directa CSV para velocidad y compatibilidad
         u_cli = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Consultantes"
         u_prog = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Informes_Programados"
         
         df_c = pd.read_csv(u_cli).dropna(how="all")
         df_p = pd.read_csv(u_prog).dropna(how="all")
 
-        # Diccionario de Mapeo Inteligente (Sinónimos de encabezados de Excel que Patricia podría usar)
+        # Diccionario de Mapeo Inteligente (Sinónimos de encabezados de Excel)
         mapa_columnas = {
             'id_consultante': ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli', 'id_consultante', 'CODIGO', 'ID_CONSULTANTE'],
             'Fecha': ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac', 'FECHA NACIMIENTO', 'FECHA_NACIMIENTO', 'DATE'],
@@ -246,11 +245,7 @@ if modo_app == "📅 Programar Cliente":
     st.markdown("<p style='color: #B48E92; font-weight: 500;'>Asigna un tipo de reporte a un consultante para que aparezca en el Taller de trabajo.</p>", unsafe_allow_html=True)
     if not df_cli.empty:
         # Usamos nombres normalizados por el mapeo anterior
-        if 'Nombres' in df_cli.columns:
-            n_col = 'Nombres'
-        else:
-            n_col = df_cli.columns[0]
-            
+        n_col = 'Nombres' if 'Nombres' in df_cli.columns else df_cli.columns[0]
         opciones_cli = [f"{row[n_col]} (ID: {row['id_consultante']})" for _, row in df_cli.iterrows() if 'id_consultante' in df_cli.columns]
         st.selectbox("1. Selecciona el Cliente de la base de datos:", opciones_cli)
         st.selectbox("2. Selecciona el Tipo de Informe a realizar:", ["Carta Natal", "Tránsitos Anuales", "Revolución Solar"])
@@ -288,10 +283,7 @@ elif modo_app == "⚙️ Taller de Informes":
                 
                 # CORRECCIÓN DE DETECCIÓN DE NOMBRES
                 if not cli_data.empty:
-                    if 'Nombres' in cli_data.columns:
-                        n_col_cli = 'Nombres'
-                    else:
-                        n_col_cli = cli_data.columns[0]
+                    n_col_cli = 'Nombres' if 'Nombres' in cli_data.columns else cli_data.columns[0]
                     nombre_cli = cli_data.iloc[0][n_col_cli]
                 else:
                     nombre_cli = f"ID: {id_c}"
@@ -329,7 +321,8 @@ elif modo_app == "⚙️ Taller de Informes":
             diag_html = f"""<div class='diag-box'><div class='diag-item'><span>Fecha Nac:</span> <span>{check_fecha}</span></div><div class='diag-item'><span>Hora Nac:</span> <span>{check_hora}</span></div><div class='diag-item'><span>Latitud:</span> <span>{check_lat}</span></div><div class='diag-item'><span>Longitud:</span> <span>{check_lon}</span></div></div>"""
             st.sidebar.markdown(diag_html, unsafe_allow_html=True)
 
-            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (PARTE CRÍTICA) ---
+            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (PARTE CRÍTICA RECUPERADA) ---
+            # Este bloque permite a Patricia buscar la ciudad donde la persona pasará su cumpleaños.
             lat_rs, lon_rs, lug_final = None, None, ""
             if id_t == "3" or "Revolucion" in sel_p: 
                 st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
@@ -337,13 +330,16 @@ elif modo_app == "⚙️ Taller de Informes":
                 st.sidebar.caption("Busca la ciudad donde el consultante pasará su retorno solar.")
                 
                 lug_rs_input = st.sidebar.text_input("Ciudad de la Revolución:", placeholder="Ej: Madrid, España", key="ciudad_rs_search")
+                
+                # BOTÓN DE BÚSQUEDA GEOGRÁFICA
                 if st.sidebar.button("🔍 Buscar en Mapa Global", use_container_width=True):
                     if lug_rs_input:
                         with st.spinner("Conectando con el servidor de mapas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astroimpacto_premium_v520")
+                                geolocator = Nominatim(user_agent="astroimpacto_premium_v530")
                                 loc = geolocator.geocode(lug_rs_input)
                                 if loc:
+                                    # Almacenamos en el estado de sesión para que persista al refrescar
                                     st.session_state.lat_rs_auto = str(loc.latitude)
                                     st.session_state.lon_rs_auto = str(loc.longitude)
                                     st.session_state.lugar_rs_confirmado = loc.address
@@ -353,6 +349,7 @@ elif modo_app == "⚙️ Taller de Informes":
                             except Exception:
                                 st.sidebar.error("Error temporal de conexión con el mapa.")
                 
+                # Estos campos muestran las coordenadas encontradas o permiten edición manual
                 lat_rs = st.sidebar.text_input("Latitud de la RS:", value=st.session_state.lat_rs_auto)
                 lon_rs = st.sidebar.text_input("Longitud de la RS:", value=st.session_state.lon_rs_auto)
                 lug_final = st.session_state.lugar_rs_confirmado if st.session_state.lugar_rs_confirmado else lug_rs_input
@@ -379,6 +376,7 @@ elif modo_app == "⚙️ Taller de Informes":
                             datos, plant = motor_web.procesar_transitos_con_ia(payload_motor, None, id_sel)
                         elif id_t == "3" or "Revolucion" in sel_p:
                             st.session_state.tipo_reporte_actual = "REVOLUCION"
+                            # Se envían las coordenadas de relocalización calculadas arriba
                             datos, plant = motor_web.procesar_rs_con_ia(payload_motor, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
                         else:
                             st.session_state.tipo_reporte_actual = "NATAL"
@@ -405,6 +403,7 @@ elif modo_app == "⚙️ Taller de Informes":
         # --- SECCIONES REVOLUCIÓN SOLAR (DETALLE MÁXIMO) ---
         if tipo == "REVOLUCION":
             with st.expander("1. Infografía Inicial (Cuadros de Perspectiva)", expanded=False):
+                st.markdown("<p style='color:#666; font-size:0.85rem;'>Edita las frases cortas que aparecerán en los cuadros de la segunda página.</p>", unsafe_allow_html=True)
                 col1, col2 = st.columns(2)
                 with col1:
                     d['perspectivas']['transformacion'] = st.text_area("El Gran Reto de Transformación Anual", d['perspectivas'].get('transformacion', ''), height=100)
@@ -414,6 +413,7 @@ elif modo_app == "⚙️ Taller de Informes":
                     d['perspectivas']['relaciones'] = st.text_area("Tónica del Clima Vincular y Social", d['perspectivas'].get('relaciones', ''), height=100)
             
             with st.expander("2. Introducción y Análisis de Base (Natal / Tránsitos / Progresiones)", expanded=False):
+                st.markdown("<p style='color:#666; font-size:0.85rem;'>Analiza el punto de partida y el mundo interno del consultante.</p>", unsafe_allow_html=True)
                 d['intro_texto'] = st.text_area("Texto de Introducción Cálida al Informe", d.get('intro_texto',''), height=100)
                 d['carta_natal_resumen'] = st.text_area("Resumen Psicológico de la Esencia Natal", d.get('carta_natal_resumen',''), height=150)
                 d['transitos_personales'] = st.text_area("Análisis de los Tránsitos Planetarios Lentos", d.get('transitos_personales',''), height=150)
@@ -422,6 +422,7 @@ elif modo_app == "⚙️ Taller de Informes":
                 d['como_actuar_progresiones'] = tips_p.split("\n")
 
             with st.expander("3. Revolución Solar (General y Profesional)", expanded=True):
+                st.markdown("<p style='color:#666; font-size:0.85rem;'>El núcleo del año. Define la misión y los objetivos laborales.</p>", unsafe_allow_html=True)
                 d['revolucion_solar_general_1'] = st.text_area("Interpretación del Clima General de la Revolución Solar", d.get('revolucion_solar_general_1',''), height=250)
                 propuestas_revo = st.text_area("Propuestas Evolutivas del Año (Uno por línea)", "\n".join(d.get('revo_propone', [])))
                 d['revo_propone'] = propuestas_revo.split("\n")
@@ -430,6 +431,7 @@ elif modo_app == "⚙️ Taller de Informes":
                 d['logro_objetivos_profesionales'] = objs_lab.split("\n")
 
             with st.expander("4. Emocional, Trimestral y Cierre", expanded=True):
+                st.markdown("<p style='color:#666; font-size:0.85rem;'>Vínculos afectivos y calendario de hitos a lo largo del año.</p>", unsafe_allow_html=True)
                 d['situacion_emocional'] = st.text_area("Análisis Profundo de la Vida Afectiva y Familiar", d.get('situacion_emocional',''), height=180)
                 st.markdown("**Cronograma Anual de Proyección Trimestral:**")
                 if 'panorama_trimestral' in d:
@@ -453,11 +455,12 @@ elif modo_app == "⚙️ Taller de Informes":
 
             with st.expander("3. Calendario Detallado de Eventos Mensuales", expanded=True):
                 st.markdown("<p style='color: #666;'>Edita los efectos de los tránsitos específicos mes a mes:</p>", unsafe_allow_html=True)
-                for mes, eventos in d.get('calendario_por_meses', {}).items():
-                    st.markdown(f"### 🗓️ {mes}")
-                    for ev in eventos:
-                        etiqueta = f"{ev.get('fecha', '')} | {ev.get('transito', '')} {ev.get('aspecto', '')} a {ev.get('natal', '')}"
-                        ev['texto_efecto'] = st.text_area(etiqueta, ev.get('texto_efecto', ''), key=f"tr_{mes}_{ev.get('fecha','')}", height=100)
+                if 'calendario_por_meses' in d:
+                    for mes, eventos in d.get('calendario_por_meses', {}).items():
+                        st.markdown(f"### 🗓️ {mes}")
+                        for ev in eventos:
+                            etiqueta = f"{ev.get('fecha', '')} | {ev.get('transito', '')} {ev.get('aspecto', '')} a {ev.get('natal', '')}"
+                            ev['texto_efecto'] = st.text_area(etiqueta, ev.get('texto_efecto', ''), key=f"tr_{mes}_{ev.get('fecha','')}", height=100)
 
         # --- SECCIONES CARTA NATAL (DETALLE MÁXIMO) ---
         else:
