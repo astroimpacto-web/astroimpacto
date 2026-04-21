@@ -241,9 +241,12 @@ elif modo_app == "⚙️ Taller de Informes":
         st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700;'>PENDIENTES</p>", unsafe_allow_html=True)
         opciones_menu = []
         for idx, row in pendientes.iterrows():
-            if 'id_consultante' in row:
-                id_c     = str(row['id_consultante']).strip()
-                cli_data = df_cli[df_cli['id_consultante'] == id_c] if not df_cli.empty else pd.DataFrame()
+            # id_consultante puede estar en la columna propia o en la columna 'Id' de la hoja
+            id_c = str(row.get('id_consultante', '')).strip()
+            if not id_c or id_c in ('nan', ''):
+                id_c = str(row.get('Id', idx)).strip().replace('.0', '')
+
+            cli_data = df_cli[df_cli['id_consultante'] == id_c] if not df_cli.empty else pd.DataFrame()
                 n_col_cli   = 'Nombres' if 'Nombres' in cli_data.columns else (cli_data.columns[1] if not cli_data.empty else "")
                 nombre_cli  = cli_data.iloc[0][n_col_cli] if not cli_data.empty else f"ID: {id_c}"
                 id_tipo_inf = str(row.get('Id_Informe', '1')).replace('.0', '').strip()
@@ -254,7 +257,10 @@ elif modo_app == "⚙️ Taller de Informes":
             sel_p  = st.sidebar.selectbox("Selecciona el informe:", opciones_menu, label_visibility="collapsed")
             idx_p  = int(sel_p.split("Fila: ")[1])
             row_p  = pendientes.loc[idx_p]
-            id_sel = str(row_p['id_consultante'])
+            # Buscar id_consultante con fallback a columna Id
+            id_sel = str(row_p.get('id_consultante', '')).strip()
+            if not id_sel or id_sel in ('nan', ''):
+                id_sel = str(row_p.get('Id', '')).strip().replace('.0', '')
             cli_obj = df_cli[df_cli['id_consultante'] == id_sel].iloc[0]
             id_t   = str(row_p.get('Id_Informe', '1')).replace('.0', '').strip()
 
