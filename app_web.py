@@ -247,11 +247,11 @@ elif modo_app == "⚙️ Taller de Informes":
                 id_c = str(row.get('Id', idx)).strip().replace('.0', '')
 
             cli_data = df_cli[df_cli['id_consultante'] == id_c] if not df_cli.empty else pd.DataFrame()
-                n_col_cli   = 'Nombres' if 'Nombres' in cli_data.columns else (cli_data.columns[1] if not cli_data.empty else "")
-                nombre_cli  = cli_data.iloc[0][n_col_cli] if not cli_data.empty else f"ID: {id_c}"
-                id_tipo_inf = str(row.get('Id_Informe', '1')).replace('.0', '').strip()
-                tipo_txt    = "Natal" if id_tipo_inf == "1" else "Transitos" if id_tipo_inf == "2" else "Revolucion"
-                opciones_menu.append(f"{nombre_cli} ({tipo_txt}) | Fila: {idx}")
+            n_col_cli   = 'Nombres' if 'Nombres' in cli_data.columns else (cli_data.columns[1] if not cli_data.empty else "")
+            nombre_cli  = cli_data.iloc[0][n_col_cli] if not cli_data.empty else f"ID: {id_c}"
+            id_tipo_inf = str(row.get('Id_Informe', '1')).replace('.0', '').strip()
+            ipo_txt    = "Natal" if id_tipo_inf == "1" else "Transitos" if id_tipo_inf == "2" else "Revolucion"
+            opciones_menu.append(f"{nombre_cli} ({tipo_txt}) | Fila: {idx}")
 
         if opciones_menu:
             sel_p  = st.sidebar.selectbox("Selecciona el informe:", opciones_menu, label_visibility="collapsed")
