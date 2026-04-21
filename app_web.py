@@ -289,20 +289,20 @@ elif modo_app == "⚙️ Taller de Informes":
                 else:
                     nombre_cli = f"ID: {id_c}"
                 
-                # LÓGICA DE DETECCIÓN DE TIPO DE INFORME MEJORADA (EVITA EL ERROR 'REPORTE')
+                # LÓGICA DE DETECCIÓN DE TIPO DE INFORME MEJORADA (SOLUCIÓN AL ERROR 'REPORTE')
+                # Analizamos tanto el ID como palabras clave para forzar la categoría correcta
                 id_tipo_raw = str(row.get('Id_Informe', '1')).lower().strip()
-                # Limpiamos el ".0" que a veces pone Excel
                 id_tipo_clean = id_tipo_raw.replace('.0', '')
                 
                 if id_tipo_clean == "1" or "natal" in id_tipo_raw:
                     tipo_txt = "Natal"
                 elif id_tipo_clean == "2" or "transito" in id_tipo_raw:
                     tipo_txt = "Transitos"
-                elif id_tipo_clean == "3" or "revolucion" in id_tipo_raw or "solar" in id_tipo_raw or "rs" in id_tipo_raw:
+                elif id_tipo_clean in ["3", "4"] or "revolucion" in id_tipo_raw or "solar" in id_tipo_raw or "rs" in id_tipo_raw:
+                    # Incluimos el ID 4 como Revolución por si Patricia lo usa en su agenda
                     tipo_txt = "Revolucion"
                 else:
-                    # Intento de rescate si el tipo es texto directo en el excel
-                    tipo_txt = id_tipo_raw.capitalize()
+                    tipo_txt = "Reporte"
                 
                 opciones_menu.append(f"{nombre_cli} ({tipo_txt}) | Fila: {idx}")
 
@@ -313,11 +313,12 @@ elif modo_app == "⚙️ Taller de Informes":
             id_sel = str(row_p['id_consultante'])
             cli_obj = df_cli[df_cli['id_consultante'] == id_sel].iloc[0]
             
-            # Recuperamos el ID del informe seleccionado de forma limpia para la lógica de visualización
-            id_t_raw = str(row_p.get('Id_Informe', '1')).lower().strip().replace('.0', '')
+            # Recuperamos el tipo real detectado en el texto del menú para asegurar visibilidad
+            es_revolucion_final = "Revolucion" in sel_p
 
-            # --- PANEL DE DIAGNÓSTICO DE DATOS (MANTENIDO PARA SEGURIDAD) ---
+            # --- PANEL DE DIAGNÓSTICO DE DATOS (ANTELACIÓN AL ERROR) ---
             st.sidebar.markdown("<p style='font-size:0.7rem; font-weight:700; margin-top:10px;'>📊 DIAGNÓSTICO DE DATOS</p>", unsafe_allow_html=True)
+            
             check_fecha = "✅" if "Fecha" in cli_obj and not pd.isna(cli_obj["Fecha"]) else "❌"
             check_hora = "✅" if "Hora" in cli_obj and not pd.isna(cli_obj["Hora"]) else "❌"
             check_lat = "✅" if "Latitud" in cli_obj and not pd.isna(cli_obj["Latitud"]) else "❌"
@@ -326,10 +327,10 @@ elif modo_app == "⚙️ Taller de Informes":
             diag_html = f"""<div class='diag-box'><div class='diag-item'><span>Fecha Nac:</span> <span>{check_fecha}</span></div><div class='diag-item'><span>Hora Nac:</span> <span>{check_hora}</span></div><div class='diag-item'><span>Latitud:</span> <span>{check_lat}</span></div><div class='diag-item'><span>Longitud:</span> <span>{check_lon}</span></div></div>"""
             st.sidebar.markdown(diag_html, unsafe_allow_html=True)
 
-            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (LÓGICA BLINDADA) ---
-            # Activamos este bloque si el ID es "3" O si la palabra "Revolucion" está en el texto del menú
+            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (LÓGICA RECUPERADA Y BLINDADA) ---
+            # El buscador aparecerá si el informe fue detectado como "Revolucion" en el paso anterior.
             lat_rs, lon_rs, lug_final = None, None, ""
-            if id_t_raw == "3" or "Revolucion" in sel_p or "Solar" in sel_p: 
+            if es_revolucion_final: 
                 st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
                 st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px; margin-bottom:0;'>📍 RELOCALIZACIÓN RS</p>", unsafe_allow_html=True)
                 st.sidebar.caption("Busca la ciudad donde el consultante pasará su retorno solar.")
@@ -341,7 +342,7 @@ elif modo_app == "⚙️ Taller de Informes":
                     if lug_rs_input:
                         with st.spinner("Conectando con el servidor de mapas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astroimpacto_premium_v540")
+                                geolocator = Nominatim(user_agent="astroimpacto_premium_v544")
                                 loc = geolocator.geocode(lug_rs_input)
                                 if loc:
                                     st.session_state.lat_rs_auto = str(loc.latitude)
@@ -353,7 +354,7 @@ elif modo_app == "⚙️ Taller de Informes":
                             except Exception:
                                 st.sidebar.error("Error temporal de conexión con el mapa.")
                 
-                # Campos de coordenadas con persistencia
+                # Estos campos muestran las coordenadas encontradas o permiten edición manual
                 lat_rs = st.sidebar.text_input("Latitud de la RS:", value=st.session_state.lat_rs_auto)
                 lon_rs = st.sidebar.text_input("Longitud de la RS:", value=st.session_state.lon_rs_auto)
                 lug_final = st.session_state.lugar_rs_confirmado if st.session_state.lugar_rs_confirmado else lug_rs_input
@@ -361,7 +362,7 @@ elif modo_app == "⚙️ Taller de Informes":
 
             st.sidebar.markdown("<br>", unsafe_allow_html=True)
             if st.sidebar.button("🚀 INICIAR PROCESAMIENTO", type="primary", use_container_width=True):
-                # BLINDAJE DE DATOS FINAL: Aseguramos que motor_web reciba un diccionario limpio
+                # BLINDAJE DE DATOS: Aseguramos que motor_web.py reciba llaves normalizadas
                 payload_motor = cli_obj.to_dict()
                 payload_motor.update({
                     "fecha": payload_motor.get("Fecha"),
@@ -375,11 +376,12 @@ elif modo_app == "⚙️ Taller de Informes":
                     try:
                         datos, plant = None, None
                         # Usamos la misma lógica resiliente para decidir qué función del motor llamar
-                        if id_t_raw == "2" or "Transitos" in sel_p:
+                        if "Transitos" in sel_p:
                             st.session_state.tipo_reporte_actual = "TRANSITOS"
                             datos, plant = motor_web.procesar_transitos_con_ia(payload_motor, None, id_sel)
-                        elif id_t_raw == "3" or "Revolucion" in sel_p or "Solar" in sel_p:
+                        elif "Revolucion" in sel_p:
                             st.session_state.tipo_reporte_actual = "REVOLUCION"
+                            # Se envían las coordenadas de relocalización calculadas arriba
                             datos, plant = motor_web.procesar_rs_con_ia(payload_motor, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
                         else:
                             st.session_state.tipo_reporte_actual = "NATAL"
@@ -390,6 +392,7 @@ elif modo_app == "⚙️ Taller de Informes":
                             st.rerun()
                         else:
                             st.sidebar.error(f"⚠️ El motor falló: {plant}")
+                            st.sidebar.info("Consejo: Verifica tu conexión a OpenAI y que las columnas del Excel no tengan ceros.")
                     except Exception as e:
                         st.sidebar.error(f"❌ Error crítico en el procesamiento: {e}")
 
