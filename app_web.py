@@ -203,7 +203,6 @@ def cargar_bases_web():
             'Nombres': ['Nombre', 'NOMBRE', 'Nombres', 'NAME', 'Consultante', 'CLIENTE', 'nombre']
         }
 
-        # Aplicar Mapeo a ambos DataFrames para asegurar que el motor reciba las llaves correctas
         for df in [df_c, df_p]:
             if not df.empty:
                 df.columns = df.columns.str.strip()
@@ -212,7 +211,6 @@ def cargar_bases_web():
                         if s in df.columns and destino not in df.columns:
                             df.rename(columns={s: destino}, inplace=True)
                 
-                # Limpieza de IDs para evitar fallos de búsqueda por decimales accidentales en Excel
                 if 'id_consultante' in df.columns:
                     df['id_consultante'] = df['id_consultante'].astype(str).str.replace('.0', '', regex=False).str.strip()
         
@@ -230,12 +228,12 @@ st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700
 modo_app = st.sidebar.radio("Menú Principal", ["⚙️ Taller de Informes", "📅 Programar Cliente"], label_visibility="collapsed")
 st.sidebar.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
 
-# VISOR DE AUDITORÍA TÉCNICA (Visualiza los grados y minutos exactos para tu control de calidad)
+# VISOR DE AUDITORÍA TÉCNICA (Visualiza los grados y minutos exactos)
 if st.session_state.textos_generados:
     st.sidebar.markdown("### 🔍 Datos Técnicos Exactos")
     st.sidebar.caption("Cálculos matemáticos usados para la interpretación:")
     st.sidebar.code(st.session_state.datos_diccionario.get('auditoria_tecnica', 'Sin datos disponibles'), language='text')
-    st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
+    st.sidebar.markdown("<hr/>", unsafe_allow_html=True)
 
 # ==============================================================================
 # 5. MODO: PROGRAMAR CLIENTE (GESTIÓN DE AGENDA DE TRABAJO)
@@ -244,7 +242,6 @@ if modo_app == "📅 Programar Cliente":
     st.markdown("## 📅 Agenda de Clientes")
     st.markdown("<p style='color: #B48E92; font-weight: 500;'>Asigna un tipo de reporte a un consultante para que aparezca en el Taller de trabajo.</p>", unsafe_allow_html=True)
     if not df_cli.empty:
-        # Usamos nombres normalizados por el mapeo anterior
         n_col = 'Nombres' if 'Nombres' in df_cli.columns else df_cli.columns[0]
         opciones_cli = [f"{row[n_col]} (ID: {row['id_consultante']})" for _, row in df_cli.iterrows() if 'id_consultante' in df_cli.columns]
         st.selectbox("1. Selecciona el Cliente de la base de datos:", opciones_cli)
@@ -288,13 +285,14 @@ elif modo_app == "⚙️ Taller de Informes":
                 else:
                     nombre_cli = f"ID: {id_c}"
                 
-                # DEFINICIÓN CRÍTICA DE TIPO_TXT PARA EVITAR NAMEERROR
-                id_tipo_inf = str(row.get('Id_Informe', '1')).replace('.0', '').strip()
-                if id_tipo_inf == "1":
+                # DEFINICIÓN CRÍTICA DE TIPO_TXT PARA EL MENÚ
+                # Convertimos ID de Informe a string y limpiamos para que el mapeo sea exacto.
+                id_tipo_raw = str(row.get('Id_Informe', '1')).replace('.0', '').strip()
+                if id_tipo_raw == "1":
                     tipo_txt = "Natal"
-                elif id_tipo_inf == "2":
+                elif id_tipo_raw == "2":
                     tipo_txt = "Transitos"
-                elif id_tipo_inf == "3":
+                elif id_tipo_raw == "3":
                     tipo_txt = "Revolucion"
                 else:
                     tipo_txt = "Reporte"
@@ -307,12 +305,12 @@ elif modo_app == "⚙️ Taller de Informes":
             row_p = pendientes.loc[idx_p]
             id_sel = str(row_p['id_consultante'])
             cli_obj = df_cli[df_cli['id_consultante'] == id_sel].iloc[0]
-            id_t = str(row_p.get('Id_Informe', '1')).replace('.0', '').strip()
-
-            # --- PANEL DE DIAGNÓSTICO DE DATOS (ANTELACIÓN AL ERROR) ---
-            # Esto ayuda a Patricia a saber si el Excel tiene huecos antes de apretar el botón de procesar.
-            st.sidebar.markdown("<p style='font-size:0.7rem; font-weight:700; margin-top:10px;'>📊 DIAGNÓSTICO DE DATOS</p>", unsafe_allow_html=True)
             
+            # Recuperamos el ID del informe seleccionado de forma limpia
+            id_t_clean = str(row_p.get('Id_Informe', '1')).replace('.0', '').strip()
+
+            # --- PANEL DE DIAGNÓSTICO DE DATOS ---
+            st.sidebar.markdown("<p style='font-size:0.7rem; font-weight:700; margin-top:10px;'>📊 DIAGNÓSTICO DE DATOS</p>", unsafe_allow_html=True)
             check_fecha = "✅" if "Fecha" in cli_obj and not pd.isna(cli_obj["Fecha"]) else "❌"
             check_hora = "✅" if "Hora" in cli_obj and not pd.isna(cli_obj["Hora"]) else "❌"
             check_lat = "✅" if "Latitud" in cli_obj and not pd.isna(cli_obj["Latitud"]) else "❌"
@@ -322,9 +320,9 @@ elif modo_app == "⚙️ Taller de Informes":
             st.sidebar.markdown(diag_html, unsafe_allow_html=True)
 
             # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (PARTE CRÍTICA RECUPERADA) ---
-            # Este bloque permite a Patricia buscar la ciudad donde la persona pasará su cumpleaños.
+            # Activamos este bloque SIEMPRE que id_t_clean sea "3" o la palabra "Revolucion" esté en el texto
             lat_rs, lon_rs, lug_final = None, None, ""
-            if id_t == "3" or "Revolucion" in sel_p: 
+            if id_t_clean == "3" or "Revolucion" in sel_p: 
                 st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
                 st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px; margin-bottom:0;'>📍 RELOCALIZACIÓN RS</p>", unsafe_allow_html=True)
                 st.sidebar.caption("Busca la ciudad donde el consultante pasará su retorno solar.")
@@ -336,7 +334,7 @@ elif modo_app == "⚙️ Taller de Informes":
                     if lug_rs_input:
                         with st.spinner("Conectando con el servidor de mapas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astroimpacto_premium_v530")
+                                geolocator = Nominatim(user_agent="astroimpacto_premium_v540")
                                 loc = geolocator.geocode(lug_rs_input)
                                 if loc:
                                     # Almacenamos en el estado de sesión para que persista al refrescar
@@ -358,7 +356,6 @@ elif modo_app == "⚙️ Taller de Informes":
             st.sidebar.markdown("<br>", unsafe_allow_html=True)
             if st.sidebar.button("🚀 INICIAR PROCESAMIENTO", type="primary", use_container_width=True):
                 # BLINDAJE DE DATOS: Creamos un paquete explícito con todas las llaves posibles (Mayus/Minus).
-                # Esto asegura que motor_web.py encuentre siempre lo que necesita sin importar el Excel.
                 payload_motor = cli_obj.to_dict()
                 payload_motor.update({
                     "fecha": payload_motor.get("Fecha"),
@@ -371,10 +368,10 @@ elif modo_app == "⚙️ Taller de Informes":
                 with st.spinner("Calculando efemérides y redactando informe integral..."):
                     try:
                         datos, plant = None, None
-                        if id_t == "2":
+                        if id_t_clean == "2":
                             st.session_state.tipo_reporte_actual = "TRANSITOS"
                             datos, plant = motor_web.procesar_transitos_con_ia(payload_motor, None, id_sel)
-                        elif id_t == "3" or "Revolucion" in sel_p:
+                        elif id_t_clean == "3" or "Revolucion" in sel_p:
                             st.session_state.tipo_reporte_actual = "REVOLUCION"
                             # Se envían las coordenadas de relocalización calculadas arriba
                             datos, plant = motor_web.procesar_rs_con_ia(payload_motor, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
@@ -387,7 +384,6 @@ elif modo_app == "⚙️ Taller de Informes":
                             st.rerun()
                         else:
                             st.sidebar.error(f"⚠️ El motor falló: {plant}")
-                            st.sidebar.info("Consejo: Verifica tu conexión a OpenAI y que las columnas del Excel no tengan ceros.")
                     except Exception as e:
                         st.sidebar.error(f"❌ Error crítico en el procesamiento: {e}")
 
@@ -413,7 +409,6 @@ elif modo_app == "⚙️ Taller de Informes":
                     d['perspectivas']['relaciones'] = st.text_area("Tónica del Clima Vincular y Social", d['perspectivas'].get('relaciones', ''), height=100)
             
             with st.expander("2. Introducción y Análisis de Base (Natal / Tránsitos / Progresiones)", expanded=False):
-                st.markdown("<p style='color:#666; font-size:0.85rem;'>Analiza el punto de partida y el mundo interno del consultante.</p>", unsafe_allow_html=True)
                 d['intro_texto'] = st.text_area("Texto de Introducción Cálida al Informe", d.get('intro_texto',''), height=100)
                 d['carta_natal_resumen'] = st.text_area("Resumen Psicológico de la Esencia Natal", d.get('carta_natal_resumen',''), height=150)
                 d['transitos_personales'] = st.text_area("Análisis de los Tránsitos Planetarios Lentos", d.get('transitos_personales',''), height=150)
@@ -422,7 +417,6 @@ elif modo_app == "⚙️ Taller de Informes":
                 d['como_actuar_progresiones'] = tips_p.split("\n")
 
             with st.expander("3. Revolución Solar (General y Profesional)", expanded=True):
-                st.markdown("<p style='color:#666; font-size:0.85rem;'>El núcleo del año. Define la misión y los objetivos laborales.</p>", unsafe_allow_html=True)
                 d['revolucion_solar_general_1'] = st.text_area("Interpretación del Clima General de la Revolución Solar", d.get('revolucion_solar_general_1',''), height=250)
                 propuestas_revo = st.text_area("Propuestas Evolutivas del Año (Uno por línea)", "\n".join(d.get('revo_propone', [])))
                 d['revo_propone'] = propuestas_revo.split("\n")
@@ -431,7 +425,6 @@ elif modo_app == "⚙️ Taller de Informes":
                 d['logro_objetivos_profesionales'] = objs_lab.split("\n")
 
             with st.expander("4. Emocional, Trimestral y Cierre", expanded=True):
-                st.markdown("<p style='color:#666; font-size:0.85rem;'>Vínculos afectivos y calendario de hitos a lo largo del año.</p>", unsafe_allow_html=True)
                 d['situacion_emocional'] = st.text_area("Análisis Profundo de la Vida Afectiva y Familiar", d.get('situacion_emocional',''), height=180)
                 st.markdown("**Cronograma Anual de Proyección Trimestral:**")
                 if 'panorama_trimestral' in d:
