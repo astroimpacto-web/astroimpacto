@@ -7,8 +7,11 @@ import time
 # ==========================================
 # CONFIGURACIÓN DE EFEMÉRIDES PARA LA NUBE
 # ==========================================
+# FLG_MOSEPH: usa efemérides Moshier integradas en la librería.
+# No requiere archivos .se1 externos → funciona en Streamlit Cloud sin configuración adicional.
+# Precisión: ±1" para planetas principales (Sol, Luna, Mercurio–Saturno), suficiente para astrología.
 swe.set_ephe_path('')
-FLAGS = swe.FLG_SWIEPH | swe.FLG_SPEED
+FLAGS = swe.FLG_MOSEPH | swe.FLG_SPEED
 
 # Lista de planetas lentos para cálculo de tránsitos
 PLANETAS_TRANSITO = [
