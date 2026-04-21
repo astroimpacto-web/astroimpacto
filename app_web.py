@@ -187,13 +187,14 @@ def cargar_bases_web():
         url_secreta = st.secrets["connections"]["gsheets"]["spreadsheet"]
         sheet_id = url_secreta.split("/d/")[1].split("/")[0] if "/d/" in url_secreta else url_secreta
         
+        # Generar URLs de descarga directa CSV para velocidad y compatibilidad
         u_cli = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Consultantes"
         u_prog = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Informes_Programados"
         
         df_c = pd.read_csv(u_cli).dropna(how="all")
         df_p = pd.read_csv(u_prog).dropna(how="all")
 
-        # Diccionario de Mapeo Inteligente (Sinónimos de encabezados de Excel)
+        # Diccionario de Mapeo Inteligente (Sinónimos de encabezados de Excel que Patricia podría usar)
         mapa_columnas = {
             'id_consultante': ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli', 'id_consultante', 'CODIGO', 'ID_CONSULTANTE'],
             'Fecha': ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac', 'FECHA NACIMIENTO', 'FECHA_NACIMIENTO', 'DATE'],
@@ -203,6 +204,7 @@ def cargar_bases_web():
             'Nombres': ['Nombre', 'NOMBRE', 'Nombres', 'NAME', 'Consultante', 'CLIENTE', 'nombre']
         }
 
+        # Aplicar Mapeo a ambos DataFrames para asegurar que el motor reciba las llaves correctas
         for df in [df_c, df_p]:
             if not df.empty:
                 df.columns = df.columns.str.strip()
@@ -211,6 +213,7 @@ def cargar_bases_web():
                         if s in df.columns and destino not in df.columns:
                             df.rename(columns={s: destino}, inplace=True)
                 
+                # Limpieza de IDs para evitar fallos de búsqueda por decimales accidentales en Excel
                 if 'id_consultante' in df.columns:
                     df['id_consultante'] = df['id_consultante'].astype(str).str.replace('.0', '', regex=False).str.strip()
         
@@ -228,7 +231,7 @@ st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700
 modo_app = st.sidebar.radio("Menú Principal", ["⚙️ Taller de Informes", "📅 Programar Cliente"], label_visibility="collapsed")
 st.sidebar.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
 
-# VISOR DE AUDITORÍA TÉCNICA (Visualiza los grados y minutos exactos)
+# VISOR DE AUDITORÍA TÉCNICA (Visualiza los grados y minutos exactos para tu control de calidad)
 if st.session_state.textos_generados:
     st.sidebar.markdown("### 🔍 Datos Técnicos Exactos")
     st.sidebar.caption("Cálculos matemáticos usados para la interpretación:")
@@ -242,6 +245,7 @@ if modo_app == "📅 Programar Cliente":
     st.markdown("## 📅 Agenda de Clientes")
     st.markdown("<p style='color: #B48E92; font-weight: 500;'>Asigna un tipo de reporte a un consultante para que aparezca en el Taller de trabajo.</p>", unsafe_allow_html=True)
     if not df_cli.empty:
+        # Usamos nombres normalizados por el mapeo anterior
         n_col = 'Nombres' if 'Nombres' in df_cli.columns else df_cli.columns[0]
         opciones_cli = [f"{row[n_col]} (ID: {row['id_consultante']})" for _, row in df_cli.iterrows() if 'id_consultante' in df_cli.columns]
         st.selectbox("1. Selecciona el Cliente de la base de datos:", opciones_cli)
@@ -278,24 +282,27 @@ elif modo_app == "⚙️ Taller de Informes":
                 id_c = str(row['id_consultante']).strip()
                 cli_data = df_cli[df_cli['id_consultante'] == id_c] if not df_cli.empty else pd.DataFrame()
                 
-                # CORRECCIÓN DE DETECCIÓN DE NOMBRES
+                # DETECCIÓN DE NOMBRES RESILIENTE
                 if not cli_data.empty:
                     n_col_cli = 'Nombres' if 'Nombres' in cli_data.columns else cli_data.columns[0]
                     nombre_cli = cli_data.iloc[0][n_col_cli]
                 else:
                     nombre_cli = f"ID: {id_c}"
                 
-                # DEFINICIÓN CRÍTICA DE TIPO_TXT PARA EL MENÚ
-                # Convertimos ID de Informe a string y limpiamos para que el mapeo sea exacto.
-                id_tipo_raw = str(row.get('Id_Informe', '1')).replace('.0', '').strip()
-                if id_tipo_raw == "1":
+                # LÓGICA DE DETECCIÓN DE TIPO DE INFORME MEJORADA (EVITA EL ERROR 'REPORTE')
+                id_tipo_raw = str(row.get('Id_Informe', '1')).lower().strip()
+                # Limpiamos el ".0" que a veces pone Excel
+                id_tipo_clean = id_tipo_raw.replace('.0', '')
+                
+                if id_tipo_clean == "1" or "natal" in id_tipo_raw:
                     tipo_txt = "Natal"
-                elif id_tipo_raw == "2":
+                elif id_tipo_clean == "2" or "transito" in id_tipo_raw:
                     tipo_txt = "Transitos"
-                elif id_tipo_raw == "3":
+                elif id_tipo_clean == "3" or "revolucion" in id_tipo_raw or "solar" in id_tipo_raw or "rs" in id_tipo_raw:
                     tipo_txt = "Revolucion"
                 else:
-                    tipo_txt = "Reporte"
+                    # Intento de rescate si el tipo es texto directo en el excel
+                    tipo_txt = id_tipo_raw.capitalize()
                 
                 opciones_menu.append(f"{nombre_cli} ({tipo_txt}) | Fila: {idx}")
 
@@ -306,10 +313,10 @@ elif modo_app == "⚙️ Taller de Informes":
             id_sel = str(row_p['id_consultante'])
             cli_obj = df_cli[df_cli['id_consultante'] == id_sel].iloc[0]
             
-            # Recuperamos el ID del informe seleccionado de forma limpia
-            id_t_clean = str(row_p.get('Id_Informe', '1')).replace('.0', '').strip()
+            # Recuperamos el ID del informe seleccionado de forma limpia para la lógica de visualización
+            id_t_raw = str(row_p.get('Id_Informe', '1')).lower().strip().replace('.0', '')
 
-            # --- PANEL DE DIAGNÓSTICO DE DATOS ---
+            # --- PANEL DE DIAGNÓSTICO DE DATOS (MANTENIDO PARA SEGURIDAD) ---
             st.sidebar.markdown("<p style='font-size:0.7rem; font-weight:700; margin-top:10px;'>📊 DIAGNÓSTICO DE DATOS</p>", unsafe_allow_html=True)
             check_fecha = "✅" if "Fecha" in cli_obj and not pd.isna(cli_obj["Fecha"]) else "❌"
             check_hora = "✅" if "Hora" in cli_obj and not pd.isna(cli_obj["Hora"]) else "❌"
@@ -319,10 +326,10 @@ elif modo_app == "⚙️ Taller de Informes":
             diag_html = f"""<div class='diag-box'><div class='diag-item'><span>Fecha Nac:</span> <span>{check_fecha}</span></div><div class='diag-item'><span>Hora Nac:</span> <span>{check_hora}</span></div><div class='diag-item'><span>Latitud:</span> <span>{check_lat}</span></div><div class='diag-item'><span>Longitud:</span> <span>{check_lon}</span></div></div>"""
             st.sidebar.markdown(diag_html, unsafe_allow_html=True)
 
-            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (PARTE CRÍTICA RECUPERADA) ---
-            # Activamos este bloque SIEMPRE que id_t_clean sea "3" o la palabra "Revolucion" esté en el texto
+            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR (LÓGICA BLINDADA) ---
+            # Activamos este bloque si el ID es "3" O si la palabra "Revolucion" está en el texto del menú
             lat_rs, lon_rs, lug_final = None, None, ""
-            if id_t_clean == "3" or "Revolucion" in sel_p: 
+            if id_t_raw == "3" or "Revolucion" in sel_p or "Solar" in sel_p: 
                 st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
                 st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px; margin-bottom:0;'>📍 RELOCALIZACIÓN RS</p>", unsafe_allow_html=True)
                 st.sidebar.caption("Busca la ciudad donde el consultante pasará su retorno solar.")
@@ -337,7 +344,6 @@ elif modo_app == "⚙️ Taller de Informes":
                                 geolocator = Nominatim(user_agent="astroimpacto_premium_v540")
                                 loc = geolocator.geocode(lug_rs_input)
                                 if loc:
-                                    # Almacenamos en el estado de sesión para que persista al refrescar
                                     st.session_state.lat_rs_auto = str(loc.latitude)
                                     st.session_state.lon_rs_auto = str(loc.longitude)
                                     st.session_state.lugar_rs_confirmado = loc.address
@@ -347,7 +353,7 @@ elif modo_app == "⚙️ Taller de Informes":
                             except Exception:
                                 st.sidebar.error("Error temporal de conexión con el mapa.")
                 
-                # Estos campos muestran las coordenadas encontradas o permiten edición manual
+                # Campos de coordenadas con persistencia
                 lat_rs = st.sidebar.text_input("Latitud de la RS:", value=st.session_state.lat_rs_auto)
                 lon_rs = st.sidebar.text_input("Longitud de la RS:", value=st.session_state.lon_rs_auto)
                 lug_final = st.session_state.lugar_rs_confirmado if st.session_state.lugar_rs_confirmado else lug_rs_input
@@ -355,7 +361,7 @@ elif modo_app == "⚙️ Taller de Informes":
 
             st.sidebar.markdown("<br>", unsafe_allow_html=True)
             if st.sidebar.button("🚀 INICIAR PROCESAMIENTO", type="primary", use_container_width=True):
-                # BLINDAJE DE DATOS: Creamos un paquete explícito con todas las llaves posibles (Mayus/Minus).
+                # BLINDAJE DE DATOS FINAL: Aseguramos que motor_web reciba un diccionario limpio
                 payload_motor = cli_obj.to_dict()
                 payload_motor.update({
                     "fecha": payload_motor.get("Fecha"),
@@ -368,12 +374,12 @@ elif modo_app == "⚙️ Taller de Informes":
                 with st.spinner("Calculando efemérides y redactando informe integral..."):
                     try:
                         datos, plant = None, None
-                        if id_t_clean == "2":
+                        # Usamos la misma lógica resiliente para decidir qué función del motor llamar
+                        if id_t_raw == "2" or "Transitos" in sel_p:
                             st.session_state.tipo_reporte_actual = "TRANSITOS"
                             datos, plant = motor_web.procesar_transitos_con_ia(payload_motor, None, id_sel)
-                        elif id_t_clean == "3" or "Revolucion" in sel_p:
+                        elif id_t_raw == "3" or "Revolucion" in sel_p or "Solar" in sel_p:
                             st.session_state.tipo_reporte_actual = "REVOLUCION"
-                            # Se envían las coordenadas de relocalización calculadas arriba
                             datos, plant = motor_web.procesar_rs_con_ia(payload_motor, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
                         else:
                             st.session_state.tipo_reporte_actual = "NATAL"
@@ -399,7 +405,6 @@ elif modo_app == "⚙️ Taller de Informes":
         # --- SECCIONES REVOLUCIÓN SOLAR (DETALLE MÁXIMO) ---
         if tipo == "REVOLUCION":
             with st.expander("1. Infografía Inicial (Cuadros de Perspectiva)", expanded=False):
-                st.markdown("<p style='color:#666; font-size:0.85rem;'>Edita las frases cortas que aparecerán en los cuadros de la segunda página.</p>", unsafe_allow_html=True)
                 col1, col2 = st.columns(2)
                 with col1:
                     d['perspectivas']['transformacion'] = st.text_area("El Gran Reto de Transformación Anual", d['perspectivas'].get('transformacion', ''), height=100)
