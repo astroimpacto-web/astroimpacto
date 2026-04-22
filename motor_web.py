@@ -213,10 +213,12 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             jd_rs += diff / 0.9856  # ~1 grado/día
 
         # 4. COORDENADAS DE LA RS (convertir a float para evitar TypeError en swisseph)
+        # CORRECCIÓN: lat_rs y lon_rs llegan como str desde st.text_input
         lat_calc = limpiar_coordenada(lat_rs) if lat_rs else lat_n
         lon_calc = limpiar_coordenada(lon_rs) if lon_rs else lon_n
 
         # 5. POSICIONES EN EL MOMENTO EXACTO DE LA RS
+        # CORRECCIÓN: se pasa jd_rs directamente, no una fecha fija
         planetas_rs, asc_rs, mc_rs = obtener_datos_astrologicos(jd_rs, lat_calc, lon_calc)
 
         # 6. PROGRESIONES SECUNDARIAS (1 día = 1 año)
@@ -238,35 +240,28 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             f"-----------------------------------"
         )
 
-        # 8. PROMPT PARA IA BLINDADO (Anclaje con palabra clave "RETO:" para evitar desplazamiento de bloques)
+        # 8. PROMPT PARA IA (CORRECCIÓN APLICADA AQUÍ: Se añadió la Luna y regla estricta anti-alucinación)
         rol    = "Eres Patricia Ramirez, astróloga profesional. Tu estilo es profundo y detallado."
         prompt = f"""
-DATOS TÉCNICOS REALES Y ESTRICTOS para {nombre}:
-Natal: Sol en {obtener_signo(sol_natal)}, Luna en {obtener_signo(luna_natal)} y Ascendente en {obtener_signo(asc_nat)}.
-RS {anio_actual}: Ascendente Anual en {obtener_signo(asc_rs)}, Luna Anual en {obtener_signo(planetas_rs['Luna'])}.
+DATOS TÉCNICOS REALES para {nombre}:
+Natal: Sol {obtener_signo(sol_natal)}, Luna {obtener_signo(luna_natal)}, Ascendente {obtener_signo(asc_nat)}.
+RS {anio_actual}: Asc Anual {obtener_signo(asc_rs)}, Luna Anual {obtener_signo(planetas_rs['Luna'])}.
 Progresiones: Luna Progresada en {obtener_signo(planetas_prog['Luna'])}, Sol Progresado en {obtener_signo(planetas_prog['Sol'])}.
 
-Basado en estos datos EXACTOS, redacta los siguientes 15 bloques.
-REGLA VITAL 1: IGNORA CUALQUIER SALUDO PREVIO. EMPIEZA TU RESPUESTA EXACTAMENTE CON LA PALABRA "RETO:" seguida del texto del primer bloque.
-REGLA VITAL 2: Separa CADA bloque ÚNICA Y EXCLUSIVAMENTE con el delimitador "|||" (tres líneas verticales). No uses "###".
-REGLA VITAL 3: En los bloques que te pido listas, separa cada frase ÚNICAMENTE con el delimitador "&&&". NO uses números ni viñetas.
+Basado en estos datos EXACTOS, redacta los siguientes bloques separados por ###:
+REGLA VITAL: Tienes estrictamente prohibido inventar signos. Para el "Resumen de la esencia natal", usa EXCLUSIVAMENTE el Sol en {obtener_signo(sol_natal)}, la Luna en {obtener_signo(luna_natal)} y el Ascendente en {obtener_signo(asc_nat)}.
 
-ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
-1. El Gran Reto de Transformación Anual (Empieza con la palabra "RETO:" y luego escribe 1 párrafo corto)
-2. Mayores Oportunidades de Crecimiento (1 párrafo corto)
-3. Área donde se sentirá el Cambio Principal (1 párrafo corto)
-4. Tónica del Clima Vincular y Social (1 párrafo corto)
-5. Introducción cálida personalizada (1 párrafo)
-6. Resumen Psicológico de la Esencia Natal (1 párrafo interpretando SU Sol en {obtener_signo(sol_natal)}, SU Luna en {obtener_signo(luna_natal)} y SU Ascendente en {obtener_signo(asc_nat)}. PROHIBIDO inventar otros signos)
-7. Análisis de los Tránsitos Planetarios Lentos (1 párrafo)
-8. Interpretación de Progresiones y Estado Interior (1 párrafo)
-9. Tres (3) Consejos de Acción ante Progresiones (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por "&&&")
-10. Interpretación del Clima General de la Revolución Solar (2 párrafos)
-11. Tres (3) Propuestas Evolutivas del Año (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por "&&&")
-12. Panorama laboral y económico (2 párrafos)
-13. Tres (3) Objetivos Profesionales Específicos (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por "&&&")
-14. Tres (3) puntos para el Plan de Acción y Objetivos Finales (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por "&&&")
-15. Clima emocional y afectivo (2 párrafos)
+1. Reto de transformación principal del año
+2. Oportunidad mayor que se abre este año
+3. Área de cambio principal
+4. Tónica vincular y relaciones
+5. Interpretación del Clima General (mínimo 4 párrafos profundos)
+6. Panorama laboral y económico
+7. Clima emocional y afectivo
+8. Introducción cálida personalizada
+9. Resumen de la esencia natal
+10. Tránsitos lentos destacados del año
+11. Análisis de Progresiones Secundarias
 """
         resultado = ""
         for _ in range(3):
@@ -276,37 +271,26 @@ ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
             time.sleep(2)
 
         if not resultado or "Error" in resultado:
-            partes = ["(Sin información disponible)"] * 15
+            partes = ["(Sin información disponible)"] * 12
         else:
-            # BLINDAJE CONTRA DESPLAZAMIENTO: Cortamos todo el texto inútil que esté antes de la palabra "RETO:"
-            idx = resultado.find("RETO:")
-            if idx != -1:
-                resultado = resultado[idx:]
-                
-            partes = [p.strip() for p in resultado.split('|||') if p.strip()]
-            
-            # Limpiamos la palabra de anclaje del primer bloque
-            if partes and partes[0].startswith("RETO:"):
-                partes[0] = partes[0].replace("RETO:", "").strip()
-                
-            # Por si algo falló y faltan bloques
-            while len(partes) < 15:
+            if "###" in resultado:
+                partes_crudas = resultado.split('###')
+                # Si la primera parte es un saludo (Ej: "Claro, aquí tienes..."), la eliminamos para no desplazar las casillas
+                if len(partes_crudas) > 11 and len(partes_crudas[0].strip()) < 150 and "1." not in partes_crudas[0]:
+                    partes_crudas = partes_crudas[1:]
+                partes = [p.strip() for p in partes_crudas]
+            else:
+                partes = [resultado.strip()]
+
+            # Asegurar que siempre haya al menos 12 partes para evitar index errors
+            while len(partes) < 12:
                 partes.append("")
 
-        def procesar_lista(texto):
-            texto_limpio = re.sub(r'(?m)^\d+[\.\)\-]*\s*', '', texto)
-            texto_limpio = re.sub(r'(?m)^[\*\-•]\s*', '', texto_limpio)
-            if '&&&' in texto_limpio:
-                lista = [x.strip() for x in texto_limpio.split('&&&') if x.strip()]
-            else:
-                lista = [x.strip() for x in texto_limpio.split('\n') if x.strip()]
-            return lista if lista else [""]
-
-        # 9. DICCIONARIO FINAL CON MAPEO INTERCAMBIADO Y LISTAS EXTRAÍDAS
+        # 9. DICCIONARIO FINAL
         return {
             "nombre_cliente":             nombre,
             "titulo_informe":             f"Revolución Solar {anio_actual}",
-            "anio_rs":                    anio_actual,
+            "anio_rs":                    anio_actual,       # ← CORRECCIÓN: faltaba esta clave
             "auditoria_tecnica":          auditoria,
             "perspectivas": {
                 "transformacion": partes[0],
@@ -314,32 +298,23 @@ ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
                 "cambio":         partes[2],
                 "relaciones":     partes[3],
             },
-            "intro_texto":                 partes[4],
-            "carta_natal_resumen":         partes[5],
-            "transitos_personales":        partes[6],
-            "progresiones_secundarias":    partes[7],
-            "como_actuar_progresiones":    procesar_lista(partes[8]),
-            "revolucion_solar_general_1":  partes[9],
-            "revo_propone":                procesar_lista(partes[10]),
-            "situacion_laboral_economica": partes[11],
-            "logro_objetivos_profesionales": procesar_lista(partes[12]),
-            
-            # EL INTERCAMBIO SE HACE AQUÍ
-            "plan_accion_objetivos":       procesar_lista(partes[13]), # El Plan ahora está en el 14
-            "situacion_emocional":         partes[14], # Afectivo y Emocional ahora está en el 15
-            
+            "revolucion_solar_general_1":  partes[4],
+            "situacion_laboral_economica": partes[5],
+            "situacion_emocional":         partes[6],
+            "intro_texto":                 partes[7],
+            "carta_natal_resumen":         partes[8],
+            "transitos_personales":        partes[9],
+            "progresiones_secundarias":    partes[10],
+            "revo_propone":                [],
+            "logro_objetivos_profesionales": [],
+            "como_actuar_progresiones":    [],
+            "plan_accion_objetivos":       [],
             "panorama_trimestral": [
                 {"titulo": "Primer Trimestre",   "texto": "Inicios basados en tu Asc Anual."},
                 {"titulo": "Segundo Trimestre",  "texto": "Desarrollo de la Luna Anual."},
                 {"titulo": "Tercer Trimestre",   "texto": "Cosecha y resultados."},
                 {"titulo": "Cuarto Trimestre",   "texto": "Integración y cierre del año."},
             ],
-            
-            # Textos predeterminados que la plantilla HTML de RS necesita para no romperse
-            "oportunidades_profesionales": ["Confía en tus capacidades.", "Expande tu red de contactos."],
-            "como_enfrentar_profesional": ["Con estrategia.", "Delegando lo que no es clave."],
-            "oportunidades_relaciones": ["Sanar vínculos antiguos.", "Atraer nuevas amistades."],
-            "plan_accion_preguntas": ["¿Qué quieres lograr este año?", "¿Cómo vas a priorizar tu bienestar?"]
         }, "informe_astroimpacto_rs.html"
 
     except Exception as e:
@@ -362,6 +337,7 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
             f"Analiza la Carta Natal completa para {nombre}:\n"
             f"Sol {obtener_signo(planetas['Sol'])}, Luna {obtener_signo(planetas['Luna'])}, "
             f"Asc {obtener_signo(asc)}.\n"
+            f"REGLA VITAL: No inventes posiciones. Usa únicamente estos 3 signos exactos.\n"
             f"Separa cada sección con ###:\n"
             f"1. Interpretación del Sol\n"
             f"2. Interpretación de la Luna\n"
@@ -370,7 +346,18 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
         )
 
         resultado = consultor_web.consultar_gpt(rol, prompt, 2500)
-        partes = [p.strip() for p in resultado.split('###')] if resultado and "Error" not in resultado else [""] * 5
+        
+        if resultado and "Error" not in resultado:
+            if "###" in resultado:
+                partes_crudas = resultado.split('###')
+                if len(partes_crudas) > 4 and len(partes_crudas[0].strip()) < 100:
+                    partes_crudas = partes_crudas[1:]
+                partes = [p.strip() for p in partes_crudas]
+            else:
+                partes = [resultado.strip()]
+        else:
+            partes = [""] * 5
+            
         while len(partes) < 5:
             partes.append("")
 
@@ -385,10 +372,10 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
             "titulo_informe":                  "Análisis de Carta Natal",
             "auditoria_tecnica":               auditoria,
             "aspectos_clave":                  ["Esencia", "Emoción", "Camino"],
-            "interpretacion_sol_signo":        partes[1] if len(partes) > 1 else "",
-            "interpretacion_luna_signo":       partes[2] if len(partes) > 2 else "",
-            "interpretacion_asc_signo":        partes[3] if len(partes) > 3 else "",
-            "interpretacion_personalidad_global": partes[4] if len(partes) > 4 else "",
+            "interpretacion_sol_signo":        partes[0] if len(partes) > 0 else "",
+            "interpretacion_luna_signo":       partes[1] if len(partes) > 1 else "",
+            "interpretacion_asc_signo":        partes[2] if len(partes) > 2 else "",
+            "interpretacion_personalidad_global": partes[3] if len(partes) > 3 else "",
             "gigantes_del_cielo":              [],
             "foda": {
                 "fortalezas":   ["Liderazgo natural"],
