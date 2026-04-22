@@ -6,7 +6,7 @@ import base64
 import re
 from jinja2 import Environment, FileSystemLoader
 import motor_web
-from geopy.geocoders import Nominatim
+from geopy.geocoders import ArcGIS
 
 # ==============================================================================
 # 1. FUNCIONES DE APOYO Y SEGURIDAD TÉCNICA (IDENTIDAD VISUAL)
@@ -426,8 +426,9 @@ elif modo_app == "⚙️ Taller de Informes":
                     if lug_rs_input != "":
                         with st.spinner("Conectando con el servidor de mapas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astrologiaimpacto@gmail.com")
-                                loc = geolocator.geocode(lug_rs_input, timeout=15)
+                                from geopy.geocoders import ArcGIS
+                                geolocator = ArcGIS(timeout=15)
+                                loc = geolocator.geocode(lug_rs_input)
                                 if loc is not None:
                                     st.session_state.lat_rs_auto = str(loc.latitude)
                                     st.session_state.lon_rs_auto = str(loc.longitude)
