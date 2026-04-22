@@ -176,6 +176,10 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
     """
     Genera el informe de Revolución Solar con cálculo correcto del JD exacto
     y conversión de coordenadas a float.
+    CORRECCIONES APLICADAS:
+      - obtener_datos_astrologicos recibe jd directo (no fecha fija 1/1/2000)
+      - lat_rs / lon_rs se convierten a float antes de pasarlos a swisseph
+      - anio_rs incluido en el diccionario de retorno para la plantilla HTML
     """
     try:
         nombre = cliente.get('Nombres', 'Consultante')
@@ -195,6 +199,7 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
         jd_nat = swe.julday(f_nac.year, f_nac.month, f_nac.day, h_nac, swe.GREG_CAL)
         planetas_nat, asc_nat, mc_nat = obtener_datos_astrologicos(jd_nat, lat_n, lon_n)
         sol_natal = planetas_nat['Sol']
+        luna_natal = planetas_nat['Luna'] # Agregamos la Luna Natal explícitamente
 
         # 3. BÚSQUEDA DEL RETORNO SOLAR (Newton-Raphson)
         anio_actual = datetime.now().year
@@ -207,11 +212,13 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             if abs(diff) < 0.000001: break
             jd_rs += diff / 0.9856  # ~1 grado/día
 
-        # 4. COORDENADAS DE LA RS
+        # 4. COORDENADAS DE LA RS (convertir a float para evitar TypeError en swisseph)
+        # CORRECCIÓN: lat_rs y lon_rs llegan como str desde st.text_input
         lat_calc = limpiar_coordenada(lat_rs) if lat_rs else lat_n
         lon_calc = limpiar_coordenada(lon_rs) if lon_rs else lon_n
 
         # 5. POSICIONES EN EL MOMENTO EXACTO DE LA RS
+        # CORRECCIÓN: se pasa jd_rs directamente, no una fecha fija
         planetas_rs, asc_rs, mc_rs = obtener_datos_astrologicos(jd_rs, lat_calc, lon_calc)
 
         # 6. PROGRESIONES SECUNDARIAS (1 día = 1 año)
@@ -233,16 +240,13 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             f"-----------------------------------"
         )
 
-        # 8. PROMPT PARA IA BLINDADO (Anti-Alucinaciones y Orden Invertido)
+        # 8. PROMPT PARA IA BLINDADO (Anti-Alucinaciones Completo)
         rol    = "Eres Patricia Ramirez, astróloga profesional. Tu estilo es profundo y detallado."
         prompt = f"""
 DATOS TÉCNICOS REALES Y ESTRICTOS para {nombre}:
-Natal: Ascendente en {obtener_signo(asc_nat)}, Sol en {obtener_signo(sol_natal)}.
+Natal: Sol en {obtener_signo(sol_natal)}, Luna en {obtener_signo(luna_natal)} y Ascendente en {obtener_signo(asc_nat)}.
 RS {anio_actual}: Ascendente Anual en {obtener_signo(asc_rs)}, Luna Anual en {obtener_signo(planetas_rs['Luna'])}.
 Progresiones: Luna Progresada en {obtener_signo(planetas_prog['Luna'])}, Sol Progresado en {obtener_signo(planetas_prog['Sol'])}.
-
-REGLA ABSOLUTA ANTI-ALUCINACIÓN: Tienes PROHIBIDO inventar posiciones astrológicas o signos que no estén en los datos provistos.
-Para el "Resumen Psicológico de la Esencia Natal" (Bloque 6), DEBES basarte ÚNICA Y EXCLUSIVAMENTE en que su Sol está en {obtener_signo(sol_natal)} y su Ascendente está en {obtener_signo(asc_nat)}. Bajo NINGUNA circunstancia puedes mencionar otros signos (ni Piscis, ni Cáncer, ni ninguno que no sea el calculado).
 
 Basado en estos datos EXACTOS, redacta los siguientes 15 bloques.
 REGLA VITAL 1: NO escribas introducciones ni títulos. EMPIEZA TU RESPUESTA INMEDIATAMENTE CON EL TEXTO DEL PRIMER BLOQUE.
@@ -255,7 +259,7 @@ ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
 3. Área donde se sentirá el Cambio Principal (1 párrafo corto)
 4. Tónica del Clima Vincular y Social (1 párrafo corto)
 5. Introducción cálida personalizada (1 párrafo)
-6. Resumen Psicológico de la Esencia Natal (1 párrafo, basado SOLO en los datos reales provistos: Sol en {obtener_signo(sol_natal)} y Ascendente en {obtener_signo(asc_nat)})
+6. Resumen Psicológico de la Esencia Natal (1 párrafo interpretando SU Sol en {obtener_signo(sol_natal)}, SU Luna en {obtener_signo(luna_natal)} y SU Ascendente en {obtener_signo(asc_nat)}. PROHIBIDO inventar otros signos)
 7. Análisis de los Tránsitos Planetarios Lentos (1 párrafo)
 8. Interpretación de Progresiones y Estado Interior (1 párrafo)
 9. Tres (3) Consejos de Acción ante Progresiones (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por "&&&")
@@ -447,6 +451,7 @@ def procesar_transitos_con_ia(cliente, tipo_obj, id_cli):
     """
     Genera el informe anual de Tránsitos con detección automática de aspectos
     mes a mes y generación de textos vía IA.
+    CORRECCIÓN: esta función faltaba completamente en el motor original.
     """
     try:
         nombre = cliente.get('Nombres', 'Consultante')
