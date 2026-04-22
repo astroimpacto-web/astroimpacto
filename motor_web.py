@@ -4,6 +4,7 @@ import consultor_web
 from datetime import datetime, timedelta, timezone
 import time
 import re
+import os
 
 # ==========================================
 # CONFIGURACIÓN DE EFEMÉRIDES PARA LA NUBE
@@ -63,6 +64,10 @@ def deg_to_dms_sign(lon):
 def limpiar_coordenada(val):
     """
     Convierte coordenadas al decimal que necesita swisseph.
+    Soporta:
+      - Número decimal: -33.25  →  -33.25
+      - Formato '33.25.00 S'   →  -33.4167
+      - Con hemisferio S/W = negativo, N/E = positivo
     """
     if val is None:
         return 0.0
@@ -205,48 +210,37 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             f"-----------------------------------"
         )
 
-        # 8. PROMPT REESTRUCTURADO Y BLINDADO PARA LOS 15 CAMPOS EXACTOS DE PATRICIA
+        # PROMPT BLINDADO ANTI-ALUCINACIÓN Y CON EL ORDEN INTERCAMBIADO (14 Y 15)
         rol    = "Eres Patricia Ramirez, astróloga profesional. Tu estilo es profundo y detallado."
         prompt = f"""
-DATOS TÉCNICOS REALES para {nombre}:
-Natal: Asc {obtener_signo(asc_nat)}, Sol {obtener_signo(sol_natal)}.
-RS {anio_actual}: Asc Anual {obtener_signo(asc_rs)}, Luna Anual {obtener_signo(planetas_rs['Luna'])}.
+DATOS TÉCNICOS REALES Y ESTRICTOS para {nombre}:
+Natal: Ascendente {obtener_signo(asc_nat)}, Sol en {obtener_signo(sol_natal)}.
+RS {anio_actual}: Ascendente Anual {obtener_signo(asc_rs)}, Luna Anual {obtener_signo(planetas_rs['Luna'])}.
 Progresiones: Luna Progresada en {obtener_signo(planetas_prog['Luna'])}, Sol Progresado en {obtener_signo(planetas_prog['Sol'])}.
 
-Basado en estos datos EXACTOS, redacta los siguientes 15 bloques.
-REGLA VITAL 1: NO escribas introducciones como "Aquí tienes el informe". EMPIEZA TU RESPUESTA INMEDIATAMENTE CON LA ETIQUETA ###.
-REGLA VITAL 2: Separa CADA bloque exclusivamente con "###". No uses viñetas ni números al inicio de tus textos.
+REGLA ABSOLUTA: TIENES PROHIBIDO INVENTAR POSICIONES ASTROLÓGICAS. Utiliza EXCLUSIVAMENTE los signos calculados arriba para tu análisis de la esencia natal. Cíñete a las posiciones exactas dadas y no menciones otros signos genéricos.
 
-###
-El Gran Reto de Transformación Anual (1 párrafo corto)
-###
-Mayores Oportunidades de Crecimiento (1 párrafo corto)
-###
-Área donde se sentirá el Cambio Principal (1 párrafo corto)
-###
-Tónica del Clima Vincular y Social (1 párrafo corto)
-###
-Introducción cálida personalizada (1 párrafo)
-###
-Resumen Psicológico de la Esencia Natal (1 párrafo)
-###
-Análisis de los Tránsitos Planetarios Lentos (1 párrafo)
-###
-Interpretación de Progresiones y Estado Interior (1 párrafo)
-###
-3 Consejos de Acción ante Progresiones (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por el símbolo "|")
-###
-Interpretación del Clima General de la Revolución Solar (2 párrafos)
-###
-3 Propuestas Evolutivas del Año (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por el símbolo "|")
-###
-Panorama laboral y económico (2 párrafos)
-###
-3 Objetivos Profesionales Específicos (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por el símbolo "|")
-###
-Clima emocional y afectivo (2 párrafos)
-###
-3 puntos para el Plan de Acción y Objetivos Finales (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por el símbolo "|")
+Basado en estos datos EXACTOS, redacta los siguientes 15 bloques.
+REGLA VITAL 1: NO escribas introducciones ni títulos. EMPIEZA TU RESPUESTA INMEDIATAMENTE CON EL TEXTO DEL PRIMER BLOQUE.
+REGLA VITAL 2: Separa CADA bloque ÚNICA Y EXCLUSIVAMENTE con el delimitador "|||" (tres líneas verticales). No uses "###".
+REGLA VITAL 3: En los bloques que te pido listas, separa cada frase ÚNICAMENTE con el delimitador "&&&". NO uses números ni viñetas.
+
+ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
+1. El Gran Reto de Transformación Anual (1 párrafo corto)
+2. Mayores Oportunidades de Crecimiento (1 párrafo corto)
+3. Área donde se sentirá el Cambio Principal (1 párrafo corto)
+4. Tónica del Clima Vincular y Social (1 párrafo corto)
+5. Introducción cálida personalizada (1 párrafo)
+6. Resumen Psicológico de la Esencia Natal (1 párrafo, basado SOLO en los datos reales provistos arriba)
+7. Análisis de los Tránsitos Planetarios Lentos (1 párrafo)
+8. Interpretación de Progresiones y Estado Interior (1 párrafo)
+9. Tres (3) Consejos de Acción ante Progresiones (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por "&&&")
+10. Interpretación del Clima General de la Revolución Solar (2 párrafos)
+11. Tres (3) Propuestas Evolutivas del Año (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por "&&&")
+12. Panorama laboral y económico (2 párrafos)
+13. Tres (3) Objetivos Profesionales Específicos (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por "&&&")
+14. Tres (3) puntos para el Plan de Acción y Objetivos Finales (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por "&&&")
+15. Clima emocional y afectivo (2 párrafos)
 """
         resultado = ""
         for _ in range(3):
@@ -258,29 +252,30 @@ Clima emocional y afectivo (2 párrafos)
         # -------------------------------------------------------------
         # LIMPIEZA EXTREMA: Eliminar saludos de la IA para que no desplace las casillas
         # -------------------------------------------------------------
-        if resultado and "###" in resultado:
-            # Encuentra el primer "###" y corta todo el texto "amable" que esté antes de eso
-            resultado = resultado[resultado.find("###") + 3:]
+        if resultado and "|||" in resultado:
+            partes_preliminares = resultado.split("|||")
+            # Si la IA puso texto basura antes del primer |||, lo cortamos
+            if len(partes_preliminares) > 15:
+                 resultado = resultado[resultado.find("|||") + 3:]
 
         if not resultado or "Error" in resultado:
             partes = ["(Sin información generada)"] * 15
         else:
-            partes = [p.strip() for p in resultado.split('###')]
-            # Por seguridad, si generó menos partes de las pedidas, rellenamos
+            partes = [p.strip() for p in resultado.split('|||') if p.strip()]
+            # Relleno de seguridad por si la IA se corta
             while len(partes) < 15:
                 partes.append("")
 
-        # Función resiliente para extraer listas (elimina números 1. 2. y detecta | o saltos)
         def procesar_lista(texto):
             texto_limpio = re.sub(r'(?m)^\d+[\.\)\-]*\s*', '', texto) 
             texto_limpio = re.sub(r'(?m)^[\*\-•]\s*', '', texto_limpio)
-            if '|' in texto_limpio:
-                lista = [x.strip() for x in texto_limpio.split('|') if x.strip()]
+            if '&&&' in texto_limpio:
+                lista = [x.strip() for x in texto_limpio.split('&&&') if x.strip()]
             else:
                 lista = [x.strip() for x in texto_limpio.split('\n') if x.strip()]
             return lista if lista else [""]
 
-        # 9. MAPEO PERFECTO DE LAS CASILLAS
+        # 9. MAPEO EXACTO Y ORDENADO (BLOQUES 14 Y 15 INTERCAMBIADOS)
         return {
             "nombre_cliente":             nombre,
             "titulo_informe":             f"Revolución Solar {anio_actual}",
@@ -293,7 +288,7 @@ Clima emocional y afectivo (2 párrafos)
                 "relaciones":     partes[3], # Casilla 4: Clima Vincular
             },
             "intro_texto":                 partes[4], # Casilla 5: Introducción
-            "carta_natal_resumen":         partes[5], # Casilla 6: Esencia Natal
+            "carta_natal_resumen":         partes[5], # Casilla 6: Esencia Natal (Sin Alucinaciones)
             "transitos_personales":        partes[6], # Casilla 7: Tránsitos Lentos
             "progresiones_secundarias":    partes[7], # Casilla 8: Progresiones
             "como_actuar_progresiones":    procesar_lista(partes[8]),  # Casilla 9: Consejos (Lista)
@@ -301,8 +296,10 @@ Clima emocional y afectivo (2 párrafos)
             "revo_propone":                procesar_lista(partes[10]), # Casilla 11: Propuestas (Lista)
             "situacion_laboral_economica": partes[11], # Casilla 12: Laboral y Económico
             "logro_objetivos_profesionales": procesar_lista(partes[12]), # Casilla 13: Objetivos Prof (Lista)
-            "situacion_emocional":         partes[13], # Casilla 14: Clima Emocional
-            "plan_accion_objetivos":       procesar_lista(partes[14]), # Casilla 15: Plan de Acción (Lista)
+            
+            # INTERCAMBIO EXACTO DE TEXTOS
+            "plan_accion_objetivos":       procesar_lista(partes[13]), # Casilla 14: Plan de Acción
+            "situacion_emocional":         partes[14], # Casilla 15: Afectivo y Emocional
             
             "panorama_trimestral": [
                 {"titulo": "Primer Trimestre",   "texto": "Inicios basados en tu Asc Anual."},
@@ -311,7 +308,7 @@ Clima emocional y afectivo (2 párrafos)
                 {"titulo": "Cuarto Trimestre",   "texto": "Integración y cierre del año."},
             ],
             
-            # Textos predeterminados que la plantilla HTML de RS necesita para no romperse visualmente
+            # Textos predeterminados de diseño
             "oportunidades_profesionales": ["Confía en tus capacidades.", "Expande tu red de contactos."],
             "como_enfrentar_profesional": ["Con estrategia.", "Delegando lo que no es clave."],
             "oportunidades_relaciones": ["Sanar vínculos antiguos.", "Atraer nuevas amistades."],
