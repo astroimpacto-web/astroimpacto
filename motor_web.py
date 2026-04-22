@@ -4,7 +4,6 @@ import consultor_web
 from datetime import datetime, timedelta, timezone
 import time
 import re
-import os
 
 # ==========================================
 # CONFIGURACIÓN DE EFEMÉRIDES PARA LA NUBE
@@ -66,7 +65,7 @@ def limpiar_coordenada(val):
     Convierte coordenadas al decimal que necesita swisseph.
     Soporta:
       - Número decimal: -33.25  →  -33.25
-      - Formato '33.25.00 S'   →  -33.4167
+      - Formato '33.25.00 S'   →  -33.4167  (formato del Google Sheet)
       - Con hemisferio S/W = negativo, N/E = positivo
     """
     if val is None:
@@ -100,6 +99,7 @@ def limpiar_coordenada(val):
 def limpiar_hora(val):
     """
     Convierte hora al decimal que necesita swisseph.
+    Soporta: decimal 14.5, HH:MM:SS '20:40:00', HH:MM '7:27'
     """
     if val is None:
         return 12.0
@@ -118,7 +118,11 @@ def limpiar_hora(val):
 
 
 def limpiar_fecha(val):
-    """Parsea fechas DD-MM-AAAA correctamente."""
+    """
+    Parsea fechas DD-MM-AAAA correctamente (dayfirst=True).
+    Sin esto pd.to_datetime interpreta 10-05-2006 como 10 de mayo en EE.UU.
+    pero falla con días > 12.
+    """
     try:
         return pd.to_datetime(val, dayfirst=True)
     except Exception:
@@ -139,14 +143,20 @@ def diferencia_angular(a, b):
 # ==========================================
 
 def obtener_datos_astrologicos(jd, lat, lon):
+    """
+    Calcula posiciones planetarias y casas a partir de un Julian Day exacto.
+    CORRECCIÓN: recibe jd directo en vez de dia/mes/año/hora para evitar
+    recalcular el JD incorrectamente (bug del RS).
+    """
     planetas = {}
     for name, id_p in PLANETAS_NATALES:
         planetas[name] = swe.calc_ut(jd, id_p, FLAGS)[0][0]
     casas, ascmc = swe.houses(jd, lat, lon, b'P')
-    return planetas, ascmc[0], ascmc[1]
+    return planetas, ascmc[0], ascmc[1]  # planetas, ASC, MC
 
 
 def calcular_posiciones_base_completa(cliente):
+    """Calcula posiciones natales completas a partir del diccionario del cliente."""
     f   = limpiar_fecha(cliente.get('Fecha'))
     if f is None:
         raise ValueError(f"No se pudo parsear la fecha: {cliente.get('Fecha')}")
@@ -163,21 +173,30 @@ def calcular_posiciones_base_completa(cliente):
 # ==========================================
 
 def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, lugar_rs=None):
+    """
+    Genera el informe de Revolución Solar con cálculo correcto del JD exacto
+    y conversión de coordenadas a float.
+    """
     try:
         nombre = cliente.get('Nombres', 'Consultante')
 
+        # 1. DATOS NATALES
         try:
             f_nac = limpiar_fecha(cliente.get('Fecha'))
+            if f_nac is None:
+                return None, "Error: No se pudo parsear la fecha de nacimiento."
             h_nac = limpiar_hora(cliente.get('Hora', '12:00:00'))
             lat_n = limpiar_coordenada(cliente.get('Latitud', 0))
             lon_n = limpiar_coordenada(cliente.get('Longitud', 0))
         except Exception as ex:
-            return None, f"Error: Datos incompletos. Detalle: {ex}"
+            return None, f"Error: Datos de nacimiento incompletos para cálculos matemáticos. Detalle: {ex}"
 
+        # 2. POSICIONES NATALES
         jd_nat = swe.julday(f_nac.year, f_nac.month, f_nac.day, h_nac, swe.GREG_CAL)
         planetas_nat, asc_nat, mc_nat = obtener_datos_astrologicos(jd_nat, lat_n, lon_n)
         sol_natal = planetas_nat['Sol']
 
+        # 3. BÚSQUEDA DEL RETORNO SOLAR (Newton-Raphson)
         anio_actual = datetime.now().year
         jd_rs = swe.julday(anio_actual, f_nac.month, max(1, f_nac.day - 1), 0.0)
         for _ in range(50):
@@ -186,19 +205,23 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             if diff > 180:   diff -= 360
             elif diff < -180: diff += 360
             if abs(diff) < 0.000001: break
-            jd_rs += diff / 0.9856 
+            jd_rs += diff / 0.9856  # ~1 grado/día
 
+        # 4. COORDENADAS DE LA RS
         lat_calc = limpiar_coordenada(lat_rs) if lat_rs else lat_n
         lon_calc = limpiar_coordenada(lon_rs) if lon_rs else lon_n
 
+        # 5. POSICIONES EN EL MOMENTO EXACTO DE LA RS
         planetas_rs, asc_rs, mc_rs = obtener_datos_astrologicos(jd_rs, lat_calc, lon_calc)
 
+        # 6. PROGRESIONES SECUNDARIAS (1 día = 1 año)
         edad = anio_actual - f_nac.year
         jd_prog = jd_nat + edad
         planetas_prog = {}
         for name, id_p in [("Sol", swe.SUN), ("Luna", swe.MOON), ("Marte", swe.MARS)]:
             planetas_prog[name] = swe.calc_ut(jd_prog, id_p, FLAGS)[0][0]
 
+        # 7. PANEL DE AUDITORÍA TÉCNICA
         auditoria = (
             f"--- PANEL TÉCNICO RS {anio_actual} ---\n"
             f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)}\n"
@@ -210,15 +233,16 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             f"-----------------------------------"
         )
 
-        # PROMPT BLINDADO ANTI-ALUCINACIÓN Y CON EL ORDEN INTERCAMBIADO (14 Y 15)
+        # 8. PROMPT PARA IA BLINDADO (Anti-Alucinaciones y Orden Invertido)
         rol    = "Eres Patricia Ramirez, astróloga profesional. Tu estilo es profundo y detallado."
         prompt = f"""
 DATOS TÉCNICOS REALES Y ESTRICTOS para {nombre}:
-Natal: Ascendente {obtener_signo(asc_nat)}, Sol en {obtener_signo(sol_natal)}.
-RS {anio_actual}: Ascendente Anual {obtener_signo(asc_rs)}, Luna Anual {obtener_signo(planetas_rs['Luna'])}.
+Natal: Ascendente en {obtener_signo(asc_nat)}, Sol en {obtener_signo(sol_natal)}.
+RS {anio_actual}: Ascendente Anual en {obtener_signo(asc_rs)}, Luna Anual en {obtener_signo(planetas_rs['Luna'])}.
 Progresiones: Luna Progresada en {obtener_signo(planetas_prog['Luna'])}, Sol Progresado en {obtener_signo(planetas_prog['Sol'])}.
 
-REGLA ABSOLUTA: TIENES PROHIBIDO INVENTAR POSICIONES ASTROLÓGICAS. Utiliza EXCLUSIVAMENTE los signos calculados arriba para tu análisis de la esencia natal. Cíñete a las posiciones exactas dadas y no menciones otros signos genéricos.
+REGLA ABSOLUTA ANTI-ALUCINACIÓN: Tienes PROHIBIDO inventar posiciones astrológicas o signos que no estén en los datos provistos.
+Para el "Resumen Psicológico de la Esencia Natal" (Bloque 6), DEBES basarte ÚNICA Y EXCLUSIVAMENTE en que su Sol está en {obtener_signo(sol_natal)} y su Ascendente está en {obtener_signo(asc_nat)}. Bajo NINGUNA circunstancia puedes mencionar otros signos (ni Piscis, ni Cáncer, ni ninguno que no sea el calculado).
 
 Basado en estos datos EXACTOS, redacta los siguientes 15 bloques.
 REGLA VITAL 1: NO escribas introducciones ni títulos. EMPIEZA TU RESPUESTA INMEDIATAMENTE CON EL TEXTO DEL PRIMER BLOQUE.
@@ -231,7 +255,7 @@ ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
 3. Área donde se sentirá el Cambio Principal (1 párrafo corto)
 4. Tónica del Clima Vincular y Social (1 párrafo corto)
 5. Introducción cálida personalizada (1 párrafo)
-6. Resumen Psicológico de la Esencia Natal (1 párrafo, basado SOLO en los datos reales provistos arriba)
+6. Resumen Psicológico de la Esencia Natal (1 párrafo, basado SOLO en los datos reales provistos: Sol en {obtener_signo(sol_natal)} y Ascendente en {obtener_signo(asc_nat)})
 7. Análisis de los Tránsitos Planetarios Lentos (1 párrafo)
 8. Interpretación de Progresiones y Estado Interior (1 párrafo)
 9. Tres (3) Consejos de Acción ante Progresiones (Escribe 3 frases cortas separadas EXCLUSIVAMENTE por "&&&")
@@ -249,25 +273,20 @@ ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
                 break
             time.sleep(2)
 
-        # -------------------------------------------------------------
-        # LIMPIEZA EXTREMA: Eliminar saludos de la IA para que no desplace las casillas
-        # -------------------------------------------------------------
         if resultado and "|||" in resultado:
             partes_preliminares = resultado.split("|||")
-            # Si la IA puso texto basura antes del primer |||, lo cortamos
             if len(partes_preliminares) > 15:
                  resultado = resultado[resultado.find("|||") + 3:]
 
         if not resultado or "Error" in resultado:
-            partes = ["(Sin información generada)"] * 15
+            partes = ["(Sin información disponible)"] * 15
         else:
-            partes = [p.strip() for p in resultado.split('|||') if p.strip()]
-            # Relleno de seguridad por si la IA se corta
+            partes = [p.strip() for p in resultado.split('|||')]
             while len(partes) < 15:
                 partes.append("")
 
         def procesar_lista(texto):
-            texto_limpio = re.sub(r'(?m)^\d+[\.\)\-]*\s*', '', texto) 
+            texto_limpio = re.sub(r'(?m)^\d+[\.\)\-]*\s*', '', texto)
             texto_limpio = re.sub(r'(?m)^[\*\-•]\s*', '', texto_limpio)
             if '&&&' in texto_limpio:
                 lista = [x.strip() for x in texto_limpio.split('&&&') if x.strip()]
@@ -275,31 +294,31 @@ ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
                 lista = [x.strip() for x in texto_limpio.split('\n') if x.strip()]
             return lista if lista else [""]
 
-        # 9. MAPEO EXACTO Y ORDENADO (BLOQUES 14 Y 15 INTERCAMBIADOS)
+        # 9. DICCIONARIO FINAL CON MAPEO INTERCAMBIADO Y LISTAS EXTRAÍDAS
         return {
             "nombre_cliente":             nombre,
             "titulo_informe":             f"Revolución Solar {anio_actual}",
             "anio_rs":                    anio_actual,
             "auditoria_tecnica":          auditoria,
             "perspectivas": {
-                "transformacion": partes[0], # Casilla 1: El Gran Reto
-                "oportunidades":  partes[1], # Casilla 2: Mayores Oportunidades
-                "cambio":         partes[2], # Casilla 3: Área de Cambio
-                "relaciones":     partes[3], # Casilla 4: Clima Vincular
+                "transformacion": partes[0],
+                "oportunidades":  partes[1],
+                "cambio":         partes[2],
+                "relaciones":     partes[3],
             },
-            "intro_texto":                 partes[4], # Casilla 5: Introducción
-            "carta_natal_resumen":         partes[5], # Casilla 6: Esencia Natal (Sin Alucinaciones)
-            "transitos_personales":        partes[6], # Casilla 7: Tránsitos Lentos
-            "progresiones_secundarias":    partes[7], # Casilla 8: Progresiones
-            "como_actuar_progresiones":    procesar_lista(partes[8]),  # Casilla 9: Consejos (Lista)
-            "revolucion_solar_general_1":  partes[9], # Casilla 10: Clima General
-            "revo_propone":                procesar_lista(partes[10]), # Casilla 11: Propuestas (Lista)
-            "situacion_laboral_economica": partes[11], # Casilla 12: Laboral y Económico
-            "logro_objetivos_profesionales": procesar_lista(partes[12]), # Casilla 13: Objetivos Prof (Lista)
+            "intro_texto":                 partes[4],
+            "carta_natal_resumen":         partes[5],
+            "transitos_personales":        partes[6],
+            "progresiones_secundarias":    partes[7],
+            "como_actuar_progresiones":    procesar_lista(partes[8]),
+            "revolucion_solar_general_1":  partes[9],
+            "revo_propone":                procesar_lista(partes[10]),
+            "situacion_laboral_economica": partes[11],
+            "logro_objetivos_profesionales": procesar_lista(partes[12]),
             
-            # INTERCAMBIO EXACTO DE TEXTOS
-            "plan_accion_objetivos":       procesar_lista(partes[13]), # Casilla 14: Plan de Acción
-            "situacion_emocional":         partes[14], # Casilla 15: Afectivo y Emocional
+            # EL INTERCAMBIO SE HACE AQUÍ
+            "plan_accion_objetivos":       procesar_lista(partes[13]), # El Plan ahora está en el 14
+            "situacion_emocional":         partes[14], # Afectivo y Emocional ahora está en el 15
             
             "panorama_trimestral": [
                 {"titulo": "Primer Trimestre",   "texto": "Inicios basados en tu Asc Anual."},
@@ -308,7 +327,7 @@ ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
                 {"titulo": "Cuarto Trimestre",   "texto": "Integración y cierre del año."},
             ],
             
-            # Textos predeterminados de diseño
+            # Textos predeterminados que la plantilla HTML de RS necesita para no romperse
             "oportunidades_profesionales": ["Confía en tus capacidades.", "Expande tu red de contactos."],
             "como_enfrentar_profesional": ["Con estrategia.", "Delegando lo que no es clave."],
             "oportunidades_relaciones": ["Sanar vínculos antiguos.", "Atraer nuevas amistades."],
@@ -325,6 +344,7 @@ ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
 # ==========================================
 
 def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
+    """Genera el informe profundo de Carta Natal con cálculos exactos."""
     try:
         nombre = cliente.get('Nombres', 'Consultante')
         planetas, asc, mc, f_nac, h_nac, lat, lon = calcular_posiciones_base_completa(cliente)
@@ -380,10 +400,15 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
 # ==========================================
 
 def _detectar_aspectos_mes(jd_inicio, jd_fin, planetas_natales_pos):
+    """
+    Detecta tránsitos de planetas lentos sobre posiciones natales en un rango de JD.
+    Retorna lista de dicts con fecha, transito, aspecto, natal.
+    """
     eventos = []
     jd = jd_inicio
-    paso = 1.0  
+    paso = 1.0  # un día por paso
 
+    # Guardamos posición del día anterior para detectar cruce del orbe exacto
     pos_ayer = {}
     for nombre_t, id_t in PLANETAS_TRANSITO:
         pos_ayer[nombre_t] = swe.calc_ut(jd - 1, id_t, FLAGS)[0][0]
@@ -395,8 +420,9 @@ def _detectar_aspectos_mes(jd_inicio, jd_fin, planetas_natales_pos):
                 for asp_nombre, asp_grados, orbe in ASPECTOS_CONFIG:
                     diff_hoy  = diferencia_angular(lon_t, lon_n + asp_grados) if asp_grados > 0 else diferencia_angular(lon_t, lon_n)
                     diff_ayer = diferencia_angular(pos_ayer[nombre_t], lon_n + asp_grados) if asp_grados > 0 else diferencia_angular(pos_ayer[nombre_t], lon_n)
-                    
+                    # Registrar cuando cruza el punto exacto (mínimo orbe)
                     if diff_hoy <= orbe and diff_hoy < diff_ayer:
+                        # Convertir JD a fecha
                         yr, mo, dy, _ = swe.revjul(jd, swe.GREG_CAL)
                         fecha_str = f"{int(dy):02d}/{int(mo):02d}/{int(yr)}"
                         rol_ia  = "Eres Patricia Ramirez, astróloga. Responde en 2 frases claras y directas en HTML <p>."
@@ -418,11 +444,17 @@ def _detectar_aspectos_mes(jd_inicio, jd_fin, planetas_natales_pos):
 
 
 def procesar_transitos_con_ia(cliente, tipo_obj, id_cli):
+    """
+    Genera el informe anual de Tránsitos con detección automática de aspectos
+    mes a mes y generación de textos vía IA.
+    """
     try:
         nombre = cliente.get('Nombres', 'Consultante')
         planetas_nat, asc_nat, mc_nat, f_nac, h_nac, lat_n, lon_n = calcular_posiciones_base_completa(cliente)
+
         anio_actual = datetime.now().year
 
+        # Posiciones natales relevantes para los tránsitos
         pos_natales = {
             "Sol":      planetas_nat["Sol"],
             "Luna":     planetas_nat["Luna"],
@@ -432,25 +464,44 @@ def procesar_transitos_con_ia(cliente, tipo_obj, id_cli):
             "Saturno":  planetas_nat["Saturno"],
         }
 
+        # Generar textos natales base
         rol = "Eres Patricia Ramirez, astróloga profesional. Redacta en HTML <p>."
-        txt_sol  = consultor_web.consultar_gpt(rol, f"Interpreta Sol en {obtener_signo(planetas_nat['Sol'])} para {nombre} en 3 frases.", 300)
-        txt_luna = consultor_web.consultar_gpt(rol, f"Interpreta Luna en {obtener_signo(planetas_nat['Luna'])} para {nombre} en 3 frases.", 300)
-        txt_asc  = consultor_web.consultar_gpt(rol, f"Interpreta Ascendente en {obtener_signo(asc_nat)} para {nombre} en 3 frases.", 300)
+        txt_sol  = consultor_web.consultar_gpt(rol,
+            f"Interpreta Sol en {obtener_signo(planetas_nat['Sol'])} para {nombre} en 3 frases.", 300)
+        txt_luna = consultor_web.consultar_gpt(rol,
+            f"Interpreta Luna en {obtener_signo(planetas_nat['Luna'])} para {nombre} en 3 frases.", 300)
+        txt_asc  = consultor_web.consultar_gpt(rol,
+            f"Interpreta Ascendente en {obtener_signo(asc_nat)} para {nombre} en 3 frases.", 300)
 
-        txt_intro = consultor_web.consultar_gpt(rol, f"Redacta una bienvenida cálida para el informe anual de tránsitos de {nombre}.", 400)
-        frase_anual = consultor_web.consultar_gpt("Eres una astróloga. Responde solo con una frase inspiradora corta, sin comillas.", f"Frase astrológica para un año con mucho {obtener_signo(asc_nat)}.", 60)
+        # Texto introductorio anual
+        txt_intro = consultor_web.consultar_gpt(rol,
+            f"Redacta una bienvenida cálida para el informe anual de tránsitos de {nombre} "
+            f"con Sol en {obtener_signo(planetas_nat['Sol'])} y Asc en {obtener_signo(asc_nat)}.", 400)
 
+        frase_anual = consultor_web.consultar_gpt(
+            "Eres una astróloga. Responde solo con una frase inspiradora corta, sin comillas.",
+            f"Frase astrológica para un año con mucho {obtener_signo(asc_nat)}.", 60)
+
+        # Detección de tránsitos mes a mes
         calendario = {}
         for mes in range(1, 13):
             jd_ini = swe.julday(anio_actual, mes, 1, 0.0)
-            if mes == 12: jd_fin = swe.julday(anio_actual + 1, 1, 1, 0.0) - 1
-            else: jd_fin = swe.julday(anio_actual, mes + 1, 1, 0.0) - 1
+            # Último día del mes
+            if mes == 12:
+                jd_fin = swe.julday(anio_actual + 1, 1, 1, 0.0) - 1
+            else:
+                jd_fin = swe.julday(anio_actual, mes + 1, 1, 0.0) - 1
 
             eventos_mes = _detectar_aspectos_mes(jd_ini, jd_fin, pos_natales)
-            if eventos_mes: 
+            if eventos_mes:  # Solo incluir meses con eventos
                 calendario[MESES_ES[mes - 1]] = eventos_mes
 
-        auditoria = f"TRÁNSITOS {anio_actual}\nSol Natal: {deg_to_dms_sign(planetas_nat['Sol'])} | Luna: {deg_to_dms_sign(planetas_nat['Luna'])} | Asc: {deg_to_dms_sign(asc_nat)}"
+        auditoria = (
+            f"TRÁNSITOS {anio_actual}\n"
+            f"Sol Natal: {deg_to_dms_sign(planetas_nat['Sol'])} | "
+            f"Luna: {deg_to_dms_sign(planetas_nat['Luna'])} | "
+            f"Asc: {deg_to_dms_sign(asc_nat)}"
+        )
 
         return {
             "nombre_cliente":          nombre,
