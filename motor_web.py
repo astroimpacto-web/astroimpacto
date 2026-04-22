@@ -199,7 +199,7 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
         jd_nat = swe.julday(f_nac.year, f_nac.month, f_nac.day, h_nac, swe.GREG_CAL)
         planetas_nat, asc_nat, mc_nat = obtener_datos_astrologicos(jd_nat, lat_n, lon_n)
         sol_natal = planetas_nat['Sol']
-        luna_natal = planetas_nat['Luna'] # Agregamos la Luna Natal explícitamente
+        luna_natal = planetas_nat['Luna']
 
         # 3. BÚSQUEDA DEL RETORNO SOLAR (Newton-Raphson)
         anio_actual = datetime.now().year
@@ -213,12 +213,10 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             jd_rs += diff / 0.9856  # ~1 grado/día
 
         # 4. COORDENADAS DE LA RS (convertir a float para evitar TypeError en swisseph)
-        # CORRECCIÓN: lat_rs y lon_rs llegan como str desde st.text_input
         lat_calc = limpiar_coordenada(lat_rs) if lat_rs else lat_n
         lon_calc = limpiar_coordenada(lon_rs) if lon_rs else lon_n
 
         # 5. POSICIONES EN EL MOMENTO EXACTO DE LA RS
-        # CORRECCIÓN: se pasa jd_rs directamente, no una fecha fija
         planetas_rs, asc_rs, mc_rs = obtener_datos_astrologicos(jd_rs, lat_calc, lon_calc)
 
         # 6. PROGRESIONES SECUNDARIAS (1 día = 1 año)
@@ -240,7 +238,7 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             f"-----------------------------------"
         )
 
-        # 8. PROMPT PARA IA BLINDADO (Anti-Alucinaciones Completo)
+        # 8. PROMPT PARA IA BLINDADO (Anclaje con palabra clave "RETO:" para evitar desplazamiento de bloques)
         rol    = "Eres Patricia Ramirez, astróloga profesional. Tu estilo es profundo y detallado."
         prompt = f"""
 DATOS TÉCNICOS REALES Y ESTRICTOS para {nombre}:
@@ -249,12 +247,12 @@ RS {anio_actual}: Ascendente Anual en {obtener_signo(asc_rs)}, Luna Anual en {ob
 Progresiones: Luna Progresada en {obtener_signo(planetas_prog['Luna'])}, Sol Progresado en {obtener_signo(planetas_prog['Sol'])}.
 
 Basado en estos datos EXACTOS, redacta los siguientes 15 bloques.
-REGLA VITAL 1: NO escribas introducciones ni títulos. EMPIEZA TU RESPUESTA INMEDIATAMENTE CON EL TEXTO DEL PRIMER BLOQUE.
+REGLA VITAL 1: IGNORA CUALQUIER SALUDO PREVIO. EMPIEZA TU RESPUESTA EXACTAMENTE CON LA PALABRA "RETO:" seguida del texto del primer bloque.
 REGLA VITAL 2: Separa CADA bloque ÚNICA Y EXCLUSIVAMENTE con el delimitador "|||" (tres líneas verticales). No uses "###".
 REGLA VITAL 3: En los bloques que te pido listas, separa cada frase ÚNICAMENTE con el delimitador "&&&". NO uses números ni viñetas.
 
 ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
-1. El Gran Reto de Transformación Anual (1 párrafo corto)
+1. El Gran Reto de Transformación Anual (Empieza con la palabra "RETO:" y luego escribe 1 párrafo corto)
 2. Mayores Oportunidades de Crecimiento (1 párrafo corto)
 3. Área donde se sentirá el Cambio Principal (1 párrafo corto)
 4. Tónica del Clima Vincular y Social (1 párrafo corto)
@@ -277,15 +275,21 @@ ORDEN ESTRICTO DE LOS 15 BLOQUES (SEPARADOS POR |||):
                 break
             time.sleep(2)
 
-        if resultado and "|||" in resultado:
-            partes_preliminares = resultado.split("|||")
-            if len(partes_preliminares) > 15:
-                 resultado = resultado[resultado.find("|||") + 3:]
-
         if not resultado or "Error" in resultado:
             partes = ["(Sin información disponible)"] * 15
         else:
-            partes = [p.strip() for p in resultado.split('|||')]
+            # BLINDAJE CONTRA DESPLAZAMIENTO: Cortamos todo el texto inútil que esté antes de la palabra "RETO:"
+            idx = resultado.find("RETO:")
+            if idx != -1:
+                resultado = resultado[idx:]
+                
+            partes = [p.strip() for p in resultado.split('|||') if p.strip()]
+            
+            # Limpiamos la palabra de anclaje del primer bloque
+            if partes and partes[0].startswith("RETO:"):
+                partes[0] = partes[0].replace("RETO:", "").strip()
+                
+            # Por si algo falló y faltan bloques
             while len(partes) < 15:
                 partes.append("")
 
