@@ -426,8 +426,8 @@ elif modo_app == "⚙️ Taller de Informes":
                     if lug_rs_input != "":
                         with st.spinner("Conectando con el servidor de mapas..."):
                             try:
-                                geolocator = Nominatim(user_agent="astroimpacto_premium_v_max")
-                                loc = geolocator.geocode(lug_rs_input, timeout=10)
+                                geolocator = Nominatim(user_agent="astrologiaimpacto@gmail.com")
+                                loc = geolocator.geocode(lug_rs_input, timeout=15)
                                 if loc is not None:
                                     st.session_state.lat_rs_auto = str(loc.latitude)
                                     st.session_state.lon_rs_auto = str(loc.longitude)
