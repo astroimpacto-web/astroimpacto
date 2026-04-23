@@ -264,9 +264,9 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
 
         # 5. AUDITORÍA TÉCNICA (Sincronizada con grados exactos)
         auditoria = (
-            f"--- PANEL TÉCNICO RS {anio_rs} ---\n"
+            f"--- PANEL TÉCNICO RS {anio_actual} ---\n"
             f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
-            f"RS {anio_rs}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
+            f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
             f"UBICACIÓN RS: {lugar_rs if lugar_rs else 'Ubicación natal'}\n"
             f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
             f"-----------------------------------"
@@ -341,7 +341,7 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
         return {
             "nombre_cliente":             nombre,
             "titulo_informe":             f"Revolución Solar {anio_actual}",
-            "anio_rs":                    anio_actual,
+            "anio_actual":                anio_actual,
             "auditoria_tecnica":          auditoria,
             "perspectivas": {
                 "transformacion": partes[0], # Bloque 1
