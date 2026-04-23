@@ -217,7 +217,7 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
         # Unpacking exacto para evitar errores de tipo o variables no definidas.
         planetas_nat, casas_nat, ascmc_nat, fecha_nac, hora_nac, lat_nat, lon_nat = calcular_posiciones_base(cliente)
         
-        nombre_seguro = cliente.get('Nombres', 'Consultante')
+        nombre = cliente.get('Nombres', 'Consultante')
         sol_natal = float(planetas_nat['Sol'])
         asc_nat   = float(ascmc_nat[0])
 
