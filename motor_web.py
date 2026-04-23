@@ -215,13 +215,6 @@ def calcular_posiciones_base_completa(cliente):
     
     return planetas, asc, mc, f, h, lat, lon
     
-    # Se añade swe.GREG_CAL para precisión absoluta en el cálculo del día juliano
-    jd  = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
-    planetas, asc, mc = obtener_datos_astrologicos(jd, lat, lon)
-    
-    return planetas, asc, mc, f, h, lat, lon
-
-
 # ==============================================================================
 # PROCESO 1: REVOLUCIÓN SOLAR (ESTRUCTURA DE 15 BLOQUES SIN RECORTES)
 # ==============================================================================
