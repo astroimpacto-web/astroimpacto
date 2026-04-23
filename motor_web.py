@@ -104,11 +104,6 @@ def deg_to_dms_sign(lon):
     return f"{grados:02d}° {signos[signo_idx]} {minutos:02d}'"
 
 def limpiar_coordenada(valor):
-    """
-    CORRECCIÓN CRÍTICA: Detecta decimales reales y GMS.
-    Esta versión evita que el motor de casas (swe.houses) falle al asegurar 
-    que siempre devuelva un número flotante válido.
-    """
     if valor is None or str(valor).strip() == "": 
         return 0.0
     if isinstance(valor, (float, int)): 
@@ -116,26 +111,22 @@ def limpiar_coordenada(valor):
     
     try:
         v = str(valor).upper().strip()
-        # Identificamos el signo por hemisferio o por guion
-        negativo = 'S' in v or 'W' in v or '-' in v
+        # Detectamos hemisferio o signo negativo
+        negativo = any(h in v for h in ['S', 'W', '-'])
         
-        # Extraemos solo números (incluyendo decimales con punto)
-        nums = re.findall(r"\d+\.\d+|\d+", v)
-        if not nums: 
-            return 0.0
+        # Buscamos números: reconoce decimales (34.603) y enteros (34)
+        numeros = re.findall(r"\d+\.\d+|\d+", v)
+        if not numeros: return 0.0
         
-        # Lógica de Precisión Patricia:
-        # Si el primer número ya es decimal (ej: -34.603), lo usamos directo.
-        if "." in nums[0]:
-            res = float(nums[0])
+        # Si el primer número ya es decimal, lo usamos directo (evita error .603 -> 60min)
+        if "." in numeros[0]:
+            res = float(numeros[0])
         else:
-            # Si son enteros (GMS), aplicamos conversión estándar
-            deg = float(nums[0])
-            min_val = float(nums[1]) if len(nums) > 1 else 0.0
-            sec_val = float(nums[2]) if len(nums) > 2 else 0.0
-            res = deg + (min_val / 60.0) + (sec_val / 3600.0)
+            # Lógica DMS original: Grados + (Minutos / 60)
+            deg = float(numeros[0])
+            min_val = float(numeros[1]) if len(numeros) > 1 else 0.0
+            res = deg + (min_val / 60.0)
             
-        # El resultado final debe ser siempre un float absoluto convertido por el signo
         return -abs(res) if negativo else abs(res)
     except: 
         return 0.0
@@ -186,37 +177,28 @@ def diferencia_angular(a, b):
 # ==============================================================================
 
 def obtener_datos_astrologicos(jd, lat, lon):
-    """
-    Realiza la consulta de efemérides con blindaje de tipos.
-    Convierte lat/lon a float para evitar el error 'swisseph.houses: error'.
-    """
     try:
         planetas = {}
         for name, id_p in PLANETAS_NATALES:
             planetas[name] = swe.calc_ut(float(jd), id_p, FLAGS)[0][0]
         
-        # Blindaje: swe.houses requiere (JD, Lat, Lon, Sistema)
-        # Forzamos conversión a float para evitar que un string rompa el motor
+        # Cálculo de casas Placidus (b'P')
+        # Es vital que lat y lon sean floats puros aquí
         casas, ascmc = swe.houses(float(jd), float(lat), float(lon), b'P')
-        return planetas, ascmc[0], ascmc[1]
+        return planetas, ascmc[0], ascmc[1] # Retorna planetas, Ascendente, Medio Cielo
     except Exception as e:
-        # Si Placidus falla por latitud extrema, el sistema no colapsa
-        raise ValueError(f"Error en cálculo astronómico: {e}")
+        raise ValueError(f"Fallo en motor de casas: {e}")
 
 def calcular_posiciones_base(cliente):
-    """
-    Genera el set base unificado. 
-    Usa GREG_CAL para evitar el error de desfase en el Ascendente Natal.
-    """
     f = limpiar_fecha(cliente.get('Fecha'))
     if f is None: 
-        raise ValueError("Fecha de nacimiento no válida en el registro")
+        raise ValueError(f"Error: Fecha no válida para {cliente.get('Nombres')}")
     
     h = limpiar_hora(cliente.get('Hora', '12:00:00'))
     lat = limpiar_coordenada(cliente.get('Latitud', 0))
     lon = limpiar_coordenada(cliente.get('Longitud', 0))
     
-    # El uso de GREG_CAL es obligatorio para que el Ascendente coincida con software profesional
+    # JD con calendario Gregoriano estricto
     jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
     planetas, asc, mc = obtener_datos_astrologicos(jd, lat, lon)
     
@@ -282,9 +264,9 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
 
         # 5. AUDITORÍA TÉCNICA (Sincronizada con grados exactos)
         auditoria = (
-            f"--- PANEL TÉCNICO RS {anio_actual} ---\n"
+            f"--- PANEL TÉCNICO RS {anio_rs} ---\n"
             f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
-            f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
+            f"RS {anio_rs}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
             f"UBICACIÓN RS: {lugar_rs if lugar_rs else 'Ubicación natal'}\n"
             f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
             f"-----------------------------------"
