@@ -104,16 +104,34 @@ def deg_to_dms_sign(lon):
     return f"{grados:02d}° {signos[signo_idx]} {minutos:02d}'"
 
 def limpiar_coordenada(valor):
+    """
+    Soporta decimales puros del mapa (-34.603) y formato DMS de Excel (34.36 S).
+    Arregla el error de David (27° Piscis / 18° Sagitario) al no confundir decimales con minutos.
+    """
+    if valor is None or str(valor).strip() == "": return 0.0
+    if isinstance(valor, (float, int)): return float(valor)
+    
     try:
-        if isinstance(valor, (float, int)): return float(valor)
         v = str(valor).upper().strip()
-        negativo = 'S' in v or 'W' in v
-        numeros = re.findall(r"\d+", v)
-        deg = float(numeros[0]) if len(numeros) > 0 else 0
-        min_val = float(numeros[1]) if len(numeros) > 1 else 0
-        decimal = deg + (min_val / 60.0)
-        return -decimal if negativo else decimal
-    except: return 0.0
+        # Identificamos el signo negativo por letra o por guion
+        negativo = any(h in v for h in ['S', 'W', '-'])
+        
+        # Extraemos números: reconoce decimales (34.603) y enteros (34)
+        nums = re.findall(r"\d+\.\d+|\d+", v)
+        if not nums: return 0.0
+        
+        # Si el primer número ya es decimal (tiene punto), lo usamos directo
+        if "." in nums[0]:
+            res = abs(float(nums[0]))
+        else:
+            # Lógica DMS Patricia: Grados + (Minutos / 60)
+            deg = float(nums[0])
+            min_val = float(nums[1]) if len(nums) > 1 else 0.0
+            res = deg + (min_val / 60.0)
+            
+        return -res if negativo else res
+    except: 
+        return 0.0
         
 def limpiar_hora(val):
     if val is None: return 12.0
@@ -146,20 +164,32 @@ def diferencia_angular(a, b):
 # ==============================================================================
 
 def obtener_datos_astrologicos(jd, lat, lon):
-    planetas = {name: swe.calc_ut(jd, id_p, FLAGS)[0][0] for name, id_p in PLANETAS_NATALES}
-    casas, ascmc = swe.houses(jd, lat, lon, b'P')
-    return planetas, casas, ascmc
+    """
+    Calcula efemérides y casas usando el SISTEMA TOPOCÉTRICO (b'T').
+    Fuerza el tipo float para evitar el error 'swisseph.houses: error'.
+    """
+    try:
+        planetas = {name: swe.calc_ut(float(jd), id_p, FLAGS)[0][0] for name, id_p in PLANETAS_NATALES}
+        # IMPORTANTE: Cambiado a b'T' para coincidir con tu Meridian local
+        casas, ascmc = swe.houses(float(jd), float(lat), float(lon), b'T')
+        return planetas, casas, ascmc
+    except Exception as e:
+        raise ValueError(f"Fallo en motor de casas Topocéntrico: {e}")
 
 def calcular_posiciones_base(cliente):
-    """Restauración versión local: Retorno de 7 variables y Hora UT directa."""
+    """
+    Restauración total versión local: 7 variables y Hora UT directa.
+    Usa GREG_CAL para precisión profesional en el Ascendente Natal.
+    """
     f = limpiar_fecha(cliente.get('Fecha'))
-    if f is None: raise ValueError("Fecha no válida")
+    if f is None: raise ValueError("Fecha no válida en el registro")
     
-    # IMPORTANTE: El excel ya trae la hora universal (UT), no se suma nada.
+    # El Excel ya trae la hora universal (UT), la usamos directa
     h = limpiar_hora(cliente.get('Hora', '12:00:00'))
     lat = limpiar_coordenada(cliente.get('Latitud', 0))
     lon = limpiar_coordenada(cliente.get('Longitud', 0))
     
+    # JD con calendario Gregoriano estricto
     jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
     planetas, casas, ascmc = obtener_datos_astrologicos(jd, lat, lon)
     
@@ -225,9 +255,9 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
 
         # 5. AUDITORÍA TÉCNICA (Sincronizada con grados exactos)
         auditoria = (
-            f"--- PANEL TÉCNICO RS {anio_rs} ---\n"
+            f"--- PANEL TÉCNICO RS {anio_actual} (TOPOCÉNTRICO) ---\n"
             f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)}\n"
-            f"RS {anio_rs}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
+            f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
             f"UBICACIÓN RS: {lugar_final}\n"
             f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
             f"-----------------------------------"
