@@ -104,31 +104,42 @@ def deg_to_dms_sign(lon):
     return f"{grados:02d}° {signos[signo_idx]} {minutos:02d}'"
 
 def limpiar_coordenada(valor):
-    try:
-        if isinstance(valor, (float, int)): 
-            return float(valor)
-        v = str(valor).upper().strip()
-        negativo = 'S' in v or 'W' in v
-        numeros = re.findall(r"\d+", v)
-        deg = float(numeros[0]) if len(numeros) > 0 else 0
-        min = float(numeros[1]) if len(numeros) > 1 else 0
-        decimal = deg + (min / 60.0)
-        return -decimal if negativo else decimal
-    except: 
+    """
+    Versión definitiva: Corrige el error del Ascendente.
+    Detecta si el dato es decimal puro (-34.6) o GMS (34.36 S).
+    """
+    if valor is None or str(valor).strip() == "":
         return 0.0
+    
+    # 1. Si ya es un número, lo devolvemos directo para no perder decimales
+    if isinstance(valor, (float, int)):
+        return float(valor)
+    
+    try:
+        v = str(valor).upper().strip()
+        # 2. Detectamos hemisferio (S y W son negativos)
+        negativo = 'S' in v or 'W' in v
         
-        # 4. Si el primer número ya tiene un punto decimal (ej: 34.5), 
-        # es una coordenada decimal y la usamos directa.
+        # 3. Extraemos los números reconociendo el punto decimal
+        # Esta regex es la clave para que -34.609 no se convierta en -34.10
+        partes = re.findall(r"[-+]?\d*\.\d+|\d+", v)
+        
+        if not partes:
+            return 0.0
+            
+        # 4. Lógica de precisión
         if "." in partes[0]:
+            # Si el primer número tiene punto (ej: 34.5), lo usamos directo
             decimal = abs(float(partes[0]))
         else:
-            # Si son números enteros, aplicamos la fórmula de Grados, Minutos, Segundos
-            decimal = float(partes[0])
-            if len(partes) > 1: decimal += float(partes[1]) / 60.0
-            if len(partes) > 2: decimal += float(partes[2]) / 3600.0
-        
+            # Si son enteros, aplicamos la fórmula de Grados y Minutos
+            deg = float(partes[0]) if len(partes) > 0 else 0.0
+            m_val = float(partes[1]) if len(partes) > 1 else 0.0
+            s_val = float(partes[2]) if len(partes) > 2 else 0.0
+            decimal = deg + (m_val / 60.0) + (s_val / 3600.0)
+            
         return -decimal if negativo else decimal
-    except:
+    except Exception:
         return 0.0
 
 def limpiar_hora(val):
