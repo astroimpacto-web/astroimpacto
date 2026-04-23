@@ -104,41 +104,19 @@ def deg_to_dms_sign(lon):
     return f"{grados:02d}° {signos[signo_idx]} {minutos:02d}'"
 
 def limpiar_coordenada(valor):
-    if valor is None or str(valor).strip() == "": 
-        return 0.0
-    if isinstance(valor, (float, int)): 
-        return float(valor)
-    
     try:
+        if isinstance(valor, (float, int)): return float(valor)
         v = str(valor).upper().strip()
-        # Detectamos hemisferio o signo negativo
-        negativo = any(h in v for h in ['S', 'W', '-'])
-        
-        # Buscamos números: reconoce decimales (34.603) y enteros (34)
-        numeros = re.findall(r"\d+\.\d+|\d+", v)
-        if not numeros: return 0.0
-        
-        # Si el primer número ya es decimal, lo usamos directo (evita error .603 -> 60min)
-        if "." in numeros[0]:
-            res = float(numeros[0])
-        else:
-            # Lógica DMS original: Grados + (Minutos / 60)
-            deg = float(numeros[0])
-            min_val = float(numeros[1]) if len(numeros) > 1 else 0.0
-            res = deg + (min_val / 60.0)
-            
-        return -abs(res) if negativo else abs(res)
-    except: 
-        return 0.0
+        negativo = 'S' in v or 'W' in v
+        numeros = re.findall(r"\d+", v)
+        deg = float(numeros[0]) if len(numeros) > 0 else 0
+        min_val = float(numeros[1]) if len(numeros) > 1 else 0
+        decimal = deg + (min_val / 60.0)
+        return -decimal if negativo else decimal
+    except: return 0.0
         
 def limpiar_hora(val):
-    """
-    Normaliza el formato de hora de nacimiento para cálculos de tiempo universal (UT).
-    Convierte formatos de texto HH:MM:SS, horas con punto o decimales en un float 
-    compatible con el motor de efemérides Swiss Eph.
-    """
-    if val is None:
-        return 12.0
+    if val is None: return 12.0
     try:
         if isinstance(val, (int, float)): return float(val)
         partes = str(val).strip().split(':')
@@ -146,22 +124,13 @@ def limpiar_hora(val):
         m = float(partes[1]) if len(partes) > 1 else 0.0
         s = float(partes[2]) if len(partes) > 2 else 0.0
         return h + m / 60.0 + s / 3600.0
-    except Exception:
-        return 12.0
+    except: return 12.0
 
 def limpiar_fecha(val):
-    """
-    Asegura que la fecha se procese correctamente independientemente del formato de origen.
-    Prioriza el formato día-mes-año (dayfirst=True) para evitar confusiones en los 
-    primeros 12 días del mes que suelen ocurrir en servidores con configuración regional USA.
-    """
-    try:
-        return pd.to_datetime(val, dayfirst=True)
-    except Exception:
-        try:
-            return pd.to_datetime(val)
-        except Exception:
-            return None
+    try: return pd.to_datetime(val, dayfirst=True)
+    except:
+        try: return pd.to_datetime(val)
+        except: return None
 
 def diferencia_angular(a, b):
     """
@@ -177,32 +146,24 @@ def diferencia_angular(a, b):
 # ==============================================================================
 
 def obtener_datos_astrologicos(jd, lat, lon):
-    try:
-        planetas = {}
-        for name, id_p in PLANETAS_NATALES:
-            planetas[name] = swe.calc_ut(float(jd), id_p, FLAGS)[0][0]
-        
-        # Cálculo de casas Placidus (b'P')
-        # Es vital que lat y lon sean floats puros aquí
-        casas, ascmc = swe.houses(float(jd), float(lat), float(lon), b'P')
-        return planetas, ascmc[0], ascmc[1] # Retorna planetas, Ascendente, Medio Cielo
-    except Exception as e:
-        raise ValueError(f"Fallo en motor de casas: {e}")
+    planetas = {name: swe.calc_ut(jd, id_p, FLAGS)[0][0] for name, id_p in PLANETAS_NATALES}
+    casas, ascmc = swe.houses(jd, lat, lon, b'P')
+    return planetas, casas, ascmc
 
 def calcular_posiciones_base(cliente):
+    """Restauración versión local: Retorno de 7 variables y Hora UT directa."""
     f = limpiar_fecha(cliente.get('Fecha'))
-    if f is None: 
-        raise ValueError(f"Error: Fecha no válida para {cliente.get('Nombres')}")
+    if f is None: raise ValueError("Fecha no válida")
     
+    # IMPORTANTE: El excel ya trae la hora universal (UT), no se suma nada.
     h = limpiar_hora(cliente.get('Hora', '12:00:00'))
     lat = limpiar_coordenada(cliente.get('Latitud', 0))
     lon = limpiar_coordenada(cliente.get('Longitud', 0))
     
-    # JD con calendario Gregoriano estricto
     jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
-    planetas, asc, mc = obtener_datos_astrologicos(jd, lat, lon)
+    planetas, casas, ascmc = obtener_datos_astrologicos(jd, lat, lon)
     
-    return planetas, asc, mc, f, h, lat, lon
+    return planetas, casas, ascmc, f, h, lat, lon
     
 # ==============================================================================
 # PROCESO 1: REVOLUCIÓN SOLAR (ESTRUCTURA DE 15 BLOQUES SIN RECORTES)
@@ -264,10 +225,10 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
 
         # 5. AUDITORÍA TÉCNICA (Sincronizada con grados exactos)
         auditoria = (
-            f"--- PANEL TÉCNICO RS {anio_actual} ---\n"
-            f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
-            f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
-            f"UBICACIÓN RS: {lugar_rs if lugar_rs else 'Ubicación natal'}\n"
+            f"--- PANEL TÉCNICO RS {anio_rs} ---\n"
+            f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)}\n"
+            f"RS {anio_rs}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
+            f"UBICACIÓN RS: {lugar_final}\n"
             f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
             f"-----------------------------------"
         )
