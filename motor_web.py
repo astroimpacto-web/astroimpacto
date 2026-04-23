@@ -178,23 +178,21 @@ def diferencia_angular(a, b):
 
 def obtener_datos_astrologicos(jd, lat, lon):
     """
-    Realiza la consulta de efemérides para un Julian Day y coordenadas geográficas.
-    Calcula tanto las posiciones planetarias como el sistema de casas Placidus, 
-    devolviendo las longitudes eclípticas necesarias para el análisis.
-    
-    Args:
-        jd (float): Julian Day en tiempo universal.
-        lat (float): Latitud geográfica.
-        lon (float): Longitud geográfica.
-        
-    Returns:
-        tuple: (dict de planetas, float Ascendente, float Medio Cielo)
+    Calcula posiciones y casas con precisión máxima.
+    Nota: jd debe ser siempre Tiempo Universal (UT).
     """
     planetas = {}
+    # 1. Calculamos planetas
     for name, id_p in PLANETAS_NATALES:
+        # FLAGS asegura que use Moshier o Efemérides según configuración
         planetas[name] = swe.calc_ut(jd, id_p, FLAGS)[0][0]
+    
+    # 2. Calculamos casas y puntos ascendentes
+    # El orden es JD, Latitud, Longitud y Sistema (b'P' = Placidus)
     casas, ascmc = swe.houses(jd, lat, lon, b'P')
-    return planetas, ascmc[0], ascmc[1] # Retorna: planetas, Ascendente, Medio Cielo
+    
+    # ascmc[0] es Ascendente, ascmc[1] es MC
+    return planetas, ascmc[0], ascmc[1]
 
 def calcular_posiciones_base_completa(cliente):
     """
