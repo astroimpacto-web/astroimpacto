@@ -103,20 +103,17 @@ def deg_to_dms_sign(lon):
     minutos  = int((lon % 1) * 60)
     return f"{grados:02d}° {signos[signo_idx]} {minutos:02d}'"
 
-def limpiar_coordenada(val):
-    if val is None or val == "": return 0.0
-    # 1. Si ya es un número (decimal), lo devolvemos tal cual
-    if isinstance(val, (int, float)): return float(val)
-    
+def limpiar_coordenada(valor):
     try:
-        s = str(val).strip().upper()
-        # 2. Detectamos si es Sur u Oeste para el signo negativo
-        negativo = any(h in s for h in ['S', 'W'])
-        
-        # 3. Extraemos todos los números (incluyendo decimales)
-        # Esto reconoce: "34.5", "34 30", "34.30.00"
-        partes = re.findall(r"[-+]?\d*\.\d+|\d+", s)
-        if not partes: return 0.0
+        if isinstance(valor, (float, int)): return float(valor)
+        v = str(valor).upper().strip()
+        negativo = 'S' in v or 'W' in v
+        numeros = re.findall(r"\d+", v)
+        deg = float(numeros[0]) if len(numeros) > 0 else 0
+        min = float(numeros[1]) if len(numeros) > 1 else 0
+        decimal = deg + (min / 60.0)
+        return -decimal if negativo else decimal
+    except: return 0.0
         
         # 4. Si el primer número ya tiene un punto decimal (ej: 34.5), 
         # es una coordenada decimal y la usamos directa.
