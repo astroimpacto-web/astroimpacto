@@ -116,7 +116,7 @@ def limpiar_coordenada(valor):
         # Identificamos el signo negativo por letra o por guion
         negativo = any(h in v for h in ['S', 'W', '-'])
         
-        # Extraemos números: reconoce decimales (34.603) y enteros (34)
+        # Buscamos números: reconoce decimales (34.603) y enteros (34)
         nums = re.findall(r"\d+\.\d+|\d+", v)
         if not nums: return 0.0
         
@@ -176,6 +176,11 @@ def obtener_datos_astrologicos(jd, lat, lon):
     except Exception as e:
         raise ValueError(f"Fallo en motor de casas Topocéntrico: {e}")
 
+
+# ==============================================================================
+# BLOQUE 3: CÁLCULOS BASE (RETORNO DE 7 VARIABLES - IGUAL A LOCAL)
+# Reemplaza la función "calcular_posiciones_base" por esta:
+# ==============================================================================
 def calcular_posiciones_base(cliente):
     """
     Restauración total versión local: 7 variables y Hora UT directa.
@@ -254,6 +259,20 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
         luna_prog_lon = swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0]
 
         # 5. AUDITORÍA TÉCNICA (Sincronizada con grados exactos)
+# ==============================================================================
+        # 1. CARTA NATAL BASE (Unpacking correcto para evitar error de 'tuple')
+        planetas_nat, casas_nat, ascmc_nat, fecha_nac, hora_nac, lat_nat, lon_nat = calcular_posiciones_base(cliente)
+        
+        # EXTRACCIÓN DE PUNTOS CLAVE (Evita el crash de deg_to_dms_sign)
+        asc_nat   = float(ascmc_nat[0])
+        mc_nat    = float(ascmc_nat[1])
+        sol_natal = float(planetas_nat['Sol'])
+
+        # ... (aquí sigue tu código de cálculo de JD_RS y planetas_rs) ...
+        # Asegúrate de extraer también el Ascendente de la Revolución:
+        # casas_rs, ascmc_rs = obtener_datos_astrologicos(jd_rs, lat_calc, lon_calc)
+        # asc_rs = float(ascmc_rs[0])
+
         auditoria = (
             f"--- PANEL TÉCNICO RS {anio_actual} (TOPOCÉNTRICO) ---\n"
             f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)}\n"
