@@ -209,8 +209,11 @@ def calcular_posiciones_base_completa(cliente):
     h   = limpiar_hora(cliente.get('Hora', '12:00:00'))
     lat = limpiar_coordenada(cliente.get('Latitud', 0))
     lon = limpiar_coordenada(cliente.get('Longitud', 0))
+    
+    # Se añade swe.GREG_CAL para precisión absoluta en el cálculo del día juliano
     jd  = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
     planetas, asc, mc = obtener_datos_astrologicos(jd, lat, lon)
+    
     return planetas, asc, mc, f, h, lat, lon
 
 
@@ -272,16 +275,14 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
         jd_prog = jd_nat + edad
         luna_prog_lon = swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0]
 
-        # 5. AUDITORÍA TÉCNICA (PARA EL PANEL DE CONTROL LATERAL DE PATRICIA)
-        # Permite a la astróloga validar los cálculos matemáticos antes de la redacción.
-        # Se incluye la Luna Natal para asegurar que no haya discrepancias con David.
+        # 5. AUDITORÍA TÉCNICA (Sincronizada con grados exactos)
         auditoria = (
-            f"--- PANEL TÉCNICO RS {anio_actual} ---\n"
-            f"NATAL: Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
-            f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
-            f"UBICACIÓN RS: {lugar_rs if lugar_rs else 'Ubicación natal'}\n"
-            f"PROGRESIÓN: Luna en {obtener_signo(luna_prog_lon)}\n"
-            f"-----------------------------------"
+        f"--- PANEL TÉCNICO RS {anio_actual} ---\n"
+        f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
+        f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
+        f"UBICACIÓN RS: {lugar_rs if lugar_rs else 'Ubicación natal'}\n"
+        f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
+        f"-----------------------------------"
         )
 
         # 6. PROMPT BLINDADO: 15 BLOQUES CON ANCLAJE DE SEGURIDAD Y REGLA ANTI-ALUCINACIÓN
