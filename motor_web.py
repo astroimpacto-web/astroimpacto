@@ -104,44 +104,32 @@ def deg_to_dms_sign(lon):
     return f"{grados:02d}° {signos[signo_idx]} {minutos:02d}'"
 
 def limpiar_coordenada(val):
-    """
-    Normaliza entradas de coordenadas geográficas provenientes de Sheets o Excel.
-    Soporta formatos decimales directos (-33.45) o formatos de texto con hemisferios 
-    indicados con letras (N, S, E, W), muy comunes en registros manuales de clientes.
+    if val is None or val == "": return 0.0
+    # 1. Si ya es un número (decimal), lo devolvemos tal cual
+    if isinstance(val, (int, float)): return float(val)
     
-    Args:
-        val: El valor de latitud o longitud (puede ser string o float).
-        
-    Returns:
-        float: Valor decimal limpio para ser usado por la librería swisseph.
-    """
-    if val is None:
-        return 0.0
-    try:
-        return float(val)
-    except (ValueError, TypeError):
-        pass
     try:
         s = str(val).strip().upper()
-        negativo = False
-        # Gestión de Hemisferios: Sur (S) y Oeste (W) se consideran negativos matemáticamente.
-        for hem in ['S', 'W']:
-            if s.endswith(hem) or s.endswith(' ' + hem):
-                negativo = True
-                s = s.replace(hem, '').strip()
-                break
-        for hem in ['N', 'E']:
-            if s.endswith(hem) or s.endswith(' ' + hem):
-                s = s.replace(hem, '').strip()
-                break
-        # Extracción de números para manejar formatos con puntos, espacios o comas.
+        # 2. Detectamos si es Sur u Oeste para el signo negativo
+        negativo = any(h in s for h in ['S', 'W'])
+        
+        # 3. Extraemos todos los números (incluyendo decimales)
+        # Esto reconoce: "34.5", "34 30", "34.30.00"
         partes = re.findall(r"[-+]?\d*\.\d+|\d+", s)
-        grados   = float(partes[0]) if len(partes) > 0 else 0.0
-        minutos  = float(partes[1]) if len(partes) > 1 else 0.0
-        segundos = float(partes[2]) if len(partes) > 2 else 0.0
-        decimal  = grados + (minutos / 60.0) + (segundos / 3600.0)
+        if not partes: return 0.0
+        
+        # 4. Si el primer número ya tiene un punto decimal (ej: 34.5), 
+        # es una coordenada decimal y la usamos directa.
+        if "." in partes[0]:
+            decimal = abs(float(partes[0]))
+        else:
+            # Si son números enteros, aplicamos la fórmula de Grados, Minutos, Segundos
+            decimal = float(partes[0])
+            if len(partes) > 1: decimal += float(partes[1]) / 60.0
+            if len(partes) > 2: decimal += float(partes[2]) / 3600.0
+        
         return -decimal if negativo else decimal
-    except Exception:
+    except:
         return 0.0
 
 def limpiar_hora(val):
