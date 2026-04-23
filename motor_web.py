@@ -105,26 +105,18 @@ def deg_to_dms_sign(lon):
 
 def limpiar_coordenada(valor):
     """
-    Detecta si la coordenada es decimal pura (del mapa) o GMS (del Excel)
-    para no perder precisión en el cálculo de las casas.
+    Restaura la lógica original de Patricia (DMS).
+    Mantiene la precisión que ya funcionaba para el Natal.
     """
-    if valor is None or str(valor).strip() == "": return 0.0
-    if isinstance(valor, (float, int)): return float(valor)
     try:
+        if isinstance(valor, (float, int)): return float(valor)
         v = str(valor).upper().strip()
         negativo = 'S' in v or 'W' in v
-        # Extraemos números reconociendo el punto decimal
-        nums = re.findall(r"[-+]?\d*\.\d+|\d+", v)
-        if not nums: return 0.0
-        # Si el primer número tiene punto decimal y no hay más, es decimal pura
-        if "." in nums[0] and len(nums) == 1:
-            res = abs(float(nums[0]))
-        else:
-            # Lógica DMS: Grados + Minutos/60
-            deg = float(nums[0]) if len(nums) > 0 else 0
-            min_val = float(nums[1]) if len(nums) > 1 else 0
-            res = deg + (min_val / 60.0)
-        return -res if negativo else res
+        numeros = re.findall(r"\d+", v)
+        deg = float(numeros[0]) if len(numeros) > 0 else 0
+        min_val = float(numeros[1]) if len(numeros) > 1 else 0
+        decimal = deg + (min_val / 60.0)
+        return -decimal if negativo else decimal
     except: return 0.0
 
 def limpiar_hora(val):
@@ -173,22 +165,30 @@ def diferencia_angular(a, b):
 # ==============================================================================
 
 def obtener_datos_astrologicos(jd, lat, lon):
-    """Calcula efemérides y casas Placidus con parámetros exactos."""
-    planetas = {name: swe.calc_ut(jd, id_p, FLAGS)[0][0] for name, id_p in PLANETAS_NATALES}
-    # Orden SwissEph: JD, Latitud, Longitud, Sistema 'P'
+    """Realiza la consulta de efemérides y casas con el sistema Placidus."""
+    planetas = {}
+    for name, id_p in PLANETAS_NATALES:
+        planetas[name] = swe.calc_ut(jd, id_p, FLAGS)[0][0]
     casas, ascmc = swe.houses(jd, lat, lon, b'P')
     return planetas, ascmc[0], ascmc[1]
 
-def calcular_posiciones_base_completa(cliente):
-    """Genera el set base usando calendario Gregoriano y precisión UT."""
+def calcular_posiciones_base(cliente):
+    """
+    Genera el set de datos base respetando la lógica de tiempo y 
+    calendario que garantizaba la precisión de tus Ascendentes.
+    """
     f = limpiar_fecha(cliente.get('Fecha'))
-    if f is None: raise ValueError("Fecha no válida")
+    if f is None:
+        raise ValueError(f"Error crítico: No se pudo parsear la fecha")
+    
     h = limpiar_hora(cliente.get('Hora', '12:00:00'))
     lat = limpiar_coordenada(cliente.get('Latitud', 0))
     lon = limpiar_coordenada(cliente.get('Longitud', 0))
-    # Obligamos al uso de GREG_CAL para evitar saltos en el Ascendente
+    
+    # JD con calendario Gregoriano para evitar desfases
     jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
     planetas, asc, mc = obtener_datos_astrologicos(jd, lat, lon)
+    
     return planetas, asc, mc, f, h, lat, lon
     
 # ==============================================================================
