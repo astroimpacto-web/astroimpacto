@@ -105,42 +105,27 @@ def deg_to_dms_sign(lon):
 
 def limpiar_coordenada(valor):
     """
-    Versión definitiva: Corrige el error del Ascendente.
-    Detecta si el dato es decimal puro (-34.6) o GMS (34.36 S).
+    Detecta si la coordenada es decimal pura (del mapa) o GMS (del Excel)
+    para no perder precisión en el cálculo de las casas.
     """
-    if valor is None or str(valor).strip() == "":
-        return 0.0
-    
-    # 1. Si ya es un número, lo devolvemos directo para no perder decimales
-    if isinstance(valor, (float, int)):
-        return float(valor)
-    
+    if valor is None or str(valor).strip() == "": return 0.0
+    if isinstance(valor, (float, int)): return float(valor)
     try:
         v = str(valor).upper().strip()
-        # 2. Detectamos hemisferio (S y W son negativos)
         negativo = 'S' in v or 'W' in v
-        
-        # 3. Extraemos los números reconociendo el punto decimal
-        # Esta regex es la clave para que -34.609 no se convierta en -34.10
-        partes = re.findall(r"[-+]?\d*\.\d+|\d+", v)
-        
-        if not partes:
-            return 0.0
-            
-        # 4. Lógica de precisión
-        if "." in partes[0]:
-            # Si el primer número tiene punto (ej: 34.5), lo usamos directo
-            decimal = abs(float(partes[0]))
+        # Extraemos números reconociendo el punto decimal
+        nums = re.findall(r"[-+]?\d*\.\d+|\d+", v)
+        if not nums: return 0.0
+        # Si el primer número tiene punto decimal y no hay más, es decimal pura
+        if "." in nums[0] and len(nums) == 1:
+            res = abs(float(nums[0]))
         else:
-            # Si son enteros, aplicamos la fórmula de Grados y Minutos
-            deg = float(partes[0]) if len(partes) > 0 else 0.0
-            m_val = float(partes[1]) if len(partes) > 1 else 0.0
-            s_val = float(partes[2]) if len(partes) > 2 else 0.0
-            decimal = deg + (m_val / 60.0) + (s_val / 3600.0)
-            
-        return -decimal if negativo else decimal
-    except Exception:
-        return 0.0
+            # Lógica DMS: Grados + Minutos/60
+            deg = float(nums[0]) if len(nums) > 0 else 0
+            min_val = float(nums[1]) if len(nums) > 1 else 0
+            res = deg + (min_val / 60.0)
+        return -res if negativo else res
+    except: return 0.0
 
 def limpiar_hora(val):
     """
@@ -188,40 +173,22 @@ def diferencia_angular(a, b):
 # ==============================================================================
 
 def obtener_datos_astrologicos(jd, lat, lon):
-    """
-    Calcula posiciones y casas con precisión máxima.
-    Nota: jd debe ser siempre Tiempo Universal (UT).
-    """
-    planetas = {}
-    # 1. Calculamos planetas
-    for name, id_p in PLANETAS_NATALES:
-        # FLAGS asegura que use Moshier o Efemérides según configuración
-        planetas[name] = swe.calc_ut(jd, id_p, FLAGS)[0][0]
-    
-    # 2. Calculamos casas y puntos ascendentes
-    # El orden es JD, Latitud, Longitud y Sistema (b'P' = Placidus)
+    """Calcula efemérides y casas Placidus con parámetros exactos."""
+    planetas = {name: swe.calc_ut(jd, id_p, FLAGS)[0][0] for name, id_p in PLANETAS_NATALES}
+    # Orden SwissEph: JD, Latitud, Longitud, Sistema 'P'
     casas, ascmc = swe.houses(jd, lat, lon, b'P')
-    
-    # ascmc[0] es Ascendente, ascmc[1] es MC
     return planetas, ascmc[0], ascmc[1]
 
 def calcular_posiciones_base_completa(cliente):
-    """
-    Genera el set de datos iniciales del consultante unificando fecha, hora y 
-    coordenadas geográficas para obtener el Julian Day natal base.
-    Valida la existencia de los datos antes de proceder al cálculo astronómico.
-    """
-    f   = limpiar_fecha(cliente.get('Fecha'))
-    if f is None:
-        raise ValueError(f"Error crítico: No se pudo parsear la fecha de {cliente.get('Nombres')}")
-    h   = limpiar_hora(cliente.get('Hora', '12:00:00'))
+    """Genera el set base usando calendario Gregoriano y precisión UT."""
+    f = limpiar_fecha(cliente.get('Fecha'))
+    if f is None: raise ValueError("Fecha no válida")
+    h = limpiar_hora(cliente.get('Hora', '12:00:00'))
     lat = limpiar_coordenada(cliente.get('Latitud', 0))
     lon = limpiar_coordenada(cliente.get('Longitud', 0))
-    
-    # Se añade swe.GREG_CAL para precisión absoluta en el cálculo del día juliano
-    jd  = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
+    # Obligamos al uso de GREG_CAL para evitar saltos en el Ascendente
+    jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
     planetas, asc, mc = obtener_datos_astrologicos(jd, lat, lon)
-    
     return planetas, asc, mc, f, h, lat, lon
     
 # ==============================================================================
@@ -283,14 +250,14 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
         luna_prog_lon = swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0]
 
         # 5. AUDITORÍA TÉCNICA (Sincronizada con grados exactos)
-        auditoria = (
-            f"--- PANEL TÉCNICO RS {anio_actual} ---\n"
-            f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
-            f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
-            f"UBICACIÓN RS: {lugar_rs if lugar_rs else 'Ubicación natal'}\n"
-            f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
-            f"-----------------------------------"
-        )
+auditoria = (
+    f"--- PANEL TÉCNICO RS {anio_actual} ---\n"
+    f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
+    f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
+    f"UBICACIÓN RS: {lugar_rs if lugar_rs else 'Ubicación natal'}\n"
+    f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
+    f"-----------------------------------"
+)
 
         # 6. PROMPT BLINDADO: 15 BLOQUES CON ANCLAJE DE SEGURIDAD Y REGLA ANTI-ALUCINACIÓN
         # Esta estructura garantiza que la IA no invente datos ni mueva los textos de casilla.
