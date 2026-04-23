@@ -105,7 +105,8 @@ def deg_to_dms_sign(lon):
 
 def limpiar_coordenada(valor):
     try:
-        if isinstance(valor, (float, int)): return float(valor)
+        if isinstance(valor, (float, int)): 
+            return float(valor)
         v = str(valor).upper().strip()
         negativo = 'S' in v or 'W' in v
         numeros = re.findall(r"\d+", v)
@@ -113,7 +114,8 @@ def limpiar_coordenada(valor):
         min = float(numeros[1]) if len(numeros) > 1 else 0
         decimal = deg + (min / 60.0)
         return -decimal if negativo else decimal
-    except: return 0.0
+    except: 
+        return 0.0
         
         # 4. Si el primer número ya tiene un punto decimal (ej: 34.5), 
         # es una coordenada decimal y la usamos directa.
@@ -278,15 +280,15 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
         jd_prog = jd_nat + edad
         luna_prog_lon = swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0]
 
-    # 5. AUDITORÍA TÉCNICA (Sincronizada con grados exactos)
-    auditoria = (
-        f"--- PANEL TÉCNICO RS {anio_actual} ---\n"
-        f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
-        f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
-        f"UBICACIÓN RS: {lugar_rs if lugar_rs else 'Ubicación natal'}\n"
-        f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
-        f"-----------------------------------"
-    )
+        # 5. AUDITORÍA TÉCNICA (Sincronizada con grados exactos)
+        auditoria = (
+            f"--- PANEL TÉCNICO RS {anio_actual} ---\n"
+            f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
+            f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
+            f"UBICACIÓN RS: {lugar_rs if lugar_rs else 'Ubicación natal'}\n"
+            f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
+            f"-----------------------------------"
+        )
 
         # 6. PROMPT BLINDADO: 15 BLOQUES CON ANCLAJE DE SEGURIDAD Y REGLA ANTI-ALUCINACIÓN
         # Esta estructura garantiza que la IA no invente datos ni mueva los textos de casilla.
