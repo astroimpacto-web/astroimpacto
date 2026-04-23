@@ -116,7 +116,7 @@ def limpiar_coordenada(valor):
         # Identificamos el signo negativo por letra o por guion
         negativo = any(h in v for h in ['S', 'W', '-'])
         
-        # Buscamos números: reconoce decimales (34.603) y enteros (34)
+        # Extraemos números: reconoce decimales (34.603) y enteros (34)
         nums = re.findall(r"\d+\.\d+|\d+", v)
         if not nums: return 0.0
         
@@ -199,6 +199,7 @@ def calcular_posiciones_base(cliente):
     planetas, casas, ascmc = obtener_datos_astrologicos(jd, lat, lon)
     
     return planetas, casas, ascmc, f, h, lat, lon
+
     
 # ==============================================================================
 # PROCESO 1: REVOLUCIÓN SOLAR (ESTRUCTURA DE 15 BLOQUES SIN RECORTES)
@@ -211,31 +212,18 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
     asegurando que los 15 bloques de información caigan en sus casillas exactas 
     según el diseño visual definido por Patricia Ramirez.
     """
-    try:
-        nombre = cliente.get('Nombres', 'Consultante')
+try:
+        # 1. CARTA NATAL BASE (Calculamos una sola vez con tu lógica local de 7 variables)
+        planetas_nat, casas_nat, ascmc_nat, fecha_nac, hora_nac, lat_nat, lon_nat = calcular_posiciones_base(cliente)
+        
+        nombre_seguro = cliente.get('Nombres', 'Consultante')
+        sol_natal = float(planetas_nat['Sol'])
+        asc_nat   = float(ascmc_nat[0])
 
-        # 1. RECUPERACIÓN DE DATOS BASE Y LUNA NATAL (SEGURIDAD TOTAL CONTRA ALUCINACIÓN)
-        # Se requiere la Luna Natal calculada para evitar alucinaciones en el resumen psicológico.
-        # Esto soluciona el problema de signos inventados en los perfiles natales.
-        try:
-            f_nac = limpiar_fecha(cliente.get('Fecha'))
-            h_nac = limpiar_hora(cliente.get('Hora', '12:00:00'))
-            lat_n = limpiar_coordenada(cliente.get('Latitud', 0))
-            lon_n = limpiar_coordenada(cliente.get('Longitud', 0))
-        except Exception as ex:
-            return None, f"Error en procesamiento de datos natales: {ex}"
-
-        # Cálculo Natal para referencia de la IA y Auditoría Técnica
-        jd_nat = swe.julday(f_nac.year, f_nac.month, f_nac.day, h_nac, swe.GREG_CAL)
-        planetas_nat, asc_nat, mc_nat = obtener_datos_astrologicos(jd_nat, lat_n, lon_n)
-        sol_natal = planetas_nat['Sol']
-        luna_natal = planetas_nat['Luna']
-
-        # 2. BÚSQUEDA MATEMÁTICA DEL RETORNO SOLAR EXACTO (NEWTON-RAPHSON ITERATIVO)
-        # Busca el segundo exacto en que el Sol vuelve a su posición natal de nacimiento.
-        # Es un proceso iterativo para alcanzar una precisión de milésimas de segundo.
+        # 2. BÚSQUEDA DEL RETORNO SOLAR (Tu proceso Newton-Raphson local)
         anio_actual = datetime.now().year
-        jd_rs = swe.julday(anio_actual, f_nac.month, max(1, f_nac.day - 1), 0.0)
+        jd_rs = swe.julday(anio_actual, fecha_nac.month, max(1, fecha_nac.day - 1), 0.0, swe.GREG_CAL)
+        
         for _ in range(50):
             sol_ahora = swe.calc_ut(jd_rs, swe.SUN, FLAGS)[0][0]
             diff = sol_natal - sol_ahora
@@ -244,39 +232,31 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             if abs(diff) < 0.000001: break
             jd_rs += diff / 0.9856 
 
-        # 3. RELOCALIZACIÓN Y POSICIONES DE LA REVOLUCIÓN
-        # Se prioriza la ubicación manual ingresada por Patricia en la barra lateral.
-        # Si no hay entrada, se asume el lugar de nacimiento para el cálculo de casas.
-        lat_calc = limpiar_coordenada(lat_rs) if lat_rs else lat_n
-        lon_calc = limpiar_coordenada(lon_rs) if lon_rs else lon_n
-        planetas_rs, asc_rs, mc_rs = obtener_datos_astrologicos(jd_rs, lat_calc, lon_calc)
+        # 3. RELOCALIZACIÓN DE LA RS
+        # Prioriza la ubicación manual de la barra lateral, si no, usa la natal.
+        lat_calc = limpiar_coordenada(lat_rs) if lat_rs else lat_nat
+        lon_calc = limpiar_coordenada(lon_rs) if lon_rs else lon_nat
+        lugar_final = lugar_rs if lugar_rs else "Ubicación natal"
+        
+        # Calculamos la Revolución usando el sistema TOPOCÉNTRICO (definido en obtener_datos_astrologicos)
+        planetas_rs, casas_rs, ascmc_rs = obtener_datos_astrologicos(jd_rs, lat_calc, lon_calc)
+        
+        asc_rs  = float(ascmc_rs[0])
+        luna_rs = float(planetas_rs['Luna'])
 
         # 4. CÁLCULO DE PROGRESIONES SECUNDARIAS
-        # Se calcula la posición de la Luna Progresada para evaluar el estado emocional interno.
-        # Este dato es fundamental para el análisis de los periodos de maduración psicológica.
-        edad = anio_actual - f_nac.year
-        jd_prog = jd_nat + edad
-        luna_prog_lon = swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0]
-
-        # 5. AUDITORÍA TÉCNICA (Sincronizada con grados exactos)
-# ==============================================================================
-        # 1. CARTA NATAL BASE (Unpacking correcto para evitar error de 'tuple')
-        planetas_nat, casas_nat, ascmc_nat, fecha_nac, hora_nac, lat_nat, lon_nat = calcular_posiciones_base(cliente)
+        edad = anio_actual - fecha_nac.year
+        jd_nacimiento = swe.julday(fecha_nac.year, fecha_nac.month, fecha_nac.day, hora_nac, swe.GREG_CAL)
+        jd_prog = jd_nacimiento + edad
         
-        # EXTRACCIÓN DE PUNTOS CLAVE (Evita el crash de deg_to_dms_sign)
-        asc_nat   = float(ascmc_nat[0])
-        mc_nat    = float(ascmc_nat[1])
-        sol_natal = float(planetas_nat['Sol'])
+        # EXTRACCIÓN CRÍTICA: [0][0] asegura que sea un número decimal y no una tupla
+        luna_prog_lon = float(swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0])
 
-        # ... (aquí sigue tu código de cálculo de JD_RS y planetas_rs) ...
-        # Asegúrate de extraer también el Ascendente de la Revolución:
-        # casas_rs, ascmc_rs = obtener_datos_astrologicos(jd_rs, lat_calc, lon_calc)
-        # asc_rs = float(ascmc_rs[0])
-
+        # 5. AUDITORÍA TÉCNICA (Sincronizada con Meridian / Local)
         auditoria = (
             f"--- PANEL TÉCNICO RS {anio_actual} (TOPOCÉNTRICO) ---\n"
             f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)}\n"
-            f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(planetas_rs['Luna'])}\n"
+            f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(luna_rs)}\n"
             f"UBICACIÓN RS: {lugar_final}\n"
             f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
             f"-----------------------------------"
