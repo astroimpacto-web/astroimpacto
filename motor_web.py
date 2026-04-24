@@ -115,8 +115,8 @@ def limpiar_hora_precisa(val):
 
 def limpiar_coordenada_dms(valor):
     """
-    CORRECCIÓN CRÍTICA: Protege los decimales que vienen de Google Sheets
-    para que la carta no se mueva geográficamente y coincida con Meridian.
+    CORRECCIÓN CRÍTICA: Soporta decimales puros (-34.603), DMS de Excel (34.34.00 S),
+    o formatos con símbolos (34° 34' S). Evita saltos de grados geográficos.
     """
     if valor is None or str(valor).strip() == "": return 0.0
     if isinstance(valor, (float, int)): return float(valor)
@@ -125,18 +125,29 @@ def limpiar_coordenada_dms(valor):
         v = str(valor).upper().strip()
         negativo = any(h in v for h in ['S', 'W', '-'])
         
-        # El regex ahora respeta el punto decimal (ej: 34.603 no se rompe)
-        nums = re.findall(r"[-+]?\d*\.\d+|\d+", v)
-        if not nums: return 0.0
+        # Limpiamos letras de orientación y signos para quedarnos con los números
+        for h in ['S', 'W', 'N', 'E', '-']:
+            v = v.replace(h, '')
+        v = v.strip()
         
-        # Si el número tiene punto decimal, lo tomamos directo
-        if "." in nums[0]:
-            res = abs(float(nums[0]))
+        # Reemplazamos símbolos raros por espacios
+        v_clean = re.sub(r"[^\d\.]", " ", v).strip()
+        
+        # Si es un número decimal puro (ej. 34.5667)
+        if v_clean.count('.') == 1 and " " not in v_clean:
+            res = float(v_clean)
         else:
-            # Si no tiene punto, aplicamos tu lógica de Grados y Minutos
-            deg = float(nums[0])
-            min_val = float(nums[1]) if len(nums) > 1 else 0.0
-            res = deg + (min_val / 60.0)
+            # Si es formato DMS de Excel (34.34.00)
+            if '.' in v_clean and " " not in v_clean:
+                partes = v_clean.split('.')
+            else:
+                # Si es formato con espacios
+                partes = v_clean.split()
+                
+            deg = float(partes[0]) if len(partes) > 0 else 0.0
+            min_val = float(partes[1]) if len(partes) > 1 else 0.0
+            sec_val = float(partes[2]) if len(partes) > 2 else 0.0
+            res = deg + (min_val / 60.0) + (sec_val / 3600.0)
             
         return -res if negativo else res
     except: 
@@ -153,6 +164,7 @@ def diferencia_angular(a, b):
     """
     d = abs(a - b) % 360
     return d if d <= 180 else 360 - d
+
 
 # ==============================================================================
 # CÁLCULOS ASTROLÓGICOS CENTRALES (LÓGICA MATEMÁTICA PURA)
