@@ -200,6 +200,7 @@ def calcular_posiciones_base(cliente):
     
     return planetas, casas, ascmc, f, h, lat, lon
 
+
     
 # ==============================================================================
 # PROCESO 1: REVOLUCIÓN SOLAR (ESTRUCTURA DE 15 BLOQUES SIN RECORTES)
