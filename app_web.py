@@ -239,6 +239,7 @@ def cargar_bases_web():
 
 # Llamada global obligatoria para evitar el NameError
 df_cli, df_prog = cargar_bases_web()
+
 # ==============================================================================
 # 5. NAVEGACIÓN Y PANEL DE AUDITORÍA TÉCNICA
 # ==============================================================================
