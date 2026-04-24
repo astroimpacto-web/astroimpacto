@@ -115,7 +115,6 @@ def limpiar_hora_precisa(val):
     except: return 0.0
 
 def limpiar_coordenada_dms(valor):
-def limpiar_coordenada_dms(valor):
     """
     CORRECCIÓN CRÍTICA: Protege los decimales que vienen de Google Sheets
     para que la carta no se mueva geográficamente y coincida con Meridian.
