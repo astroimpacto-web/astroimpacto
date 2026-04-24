@@ -291,12 +291,12 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
             "como_actuar_progresiones":    procesar_lista(partes[8]), # Bloque 9
             "revolucion_solar_general_1":  partes[9], # Bloque 10
             "revo_propone":                procesar_lista(partes[10]), # Bloque 11
-            "situacion_laboral_economica": partes[14], # Bloque 12
+            "situacion_laboral_economica": partes[12], # Bloque 12
             "logro_objetivos_profesionales": procesar_lista(partes[12]), # Bloque 13
             
             # EL INTERCAMBIO SE REALIZA AQUÍ: Bloque 14 es el Plan y el 15 la Vida Afectiva.
             "plan_accion_objetivos":       procesar_lista(partes[13]), # Bloque 14 (Plan Final)
-            "situacion_emocional":         partes[11],                 # Bloque 15 (Afectiva)
+            "situacion_emocional":         partes[15],                 # Bloque 15 (Afectiva)
             
             "panorama_trimestral": [
                 {"titulo": "Primer Trimestre",   "texto": "Inicio del ciclo con foco en la energía del Ascendente Anual."},
