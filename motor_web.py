@@ -184,14 +184,15 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
     según el diseño visual definido por Patricia Ramirez.
     """
     try:
-        # 1. RECUPERACIÓN ÚNICA DE DATOS (7 variables según tu local)
+        # 1. RECUPERACIÓN ÚNICA DE DATOS (7 variables)
         planetas_nat, casas_nat, ascmc_nat, fecha_nac, hora_nac, lat_nat, lon_nat = calcular_posiciones_base(cliente)
         
-        # DEFINICIÓN DE VARIABLES PARA EVITAR NAMEERROR
         nombre = cliente.get('Nombres', 'Consultante')
-        sol_natal = float(planetas_nat['Sol'])
+        
+        # EXTRACCIÓN FORZADA A FLOAT (Evita el error 'tuple' and 'int')
+        sol_natal  = float(planetas_nat['Sol'])
         luna_natal = float(planetas_nat['Luna'])
-        asc_nat   = float(ascmc_nat[0])
+        asc_nat    = float(ascmc_nat[0])
 
         # 2. BÚSQUEDA DEL RETORNO SOLAR (Newton-Raphson Local)
         anio_actual = datetime.now().year
@@ -204,20 +205,24 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             if abs(diff) < 0.000001: break
             jd_rs += diff / 0.9856 
 
-        # 3. RELOCALIZACIÓN
-        lat_calc = limpiar_coordenada(lat_rs) if lat_rs else lat_nat
-        lon_calc = limpiar_coordenada(lon_rs) if lon_rs else lon_nat
+        # 3. RELOCALIZACIÓN (Usando limpiar_coordenada_dms del Paso 1)
+        lat_calc = limpiar_coordenada_dms(lat_rs) if lat_rs else lat_nat
+        lon_calc = limpiar_coordenada_dms(lon_rs) if lon_rs else lon_nat
         lugar_final = lugar_rs if lugar_rs else "Ubicación natal"
         
-        # 4. CÁLCULO RS Y PROGRESIONES (Extracción de número decimal puro)
+        # 4. CÁLCULO RS Y PROGRESIONES
         planetas_rs, casas_rs, ascmc_rs = obtener_datos_astrologicos(jd_rs, lat_calc, lon_calc)
+        
+        # EXTRACCIÓN FORZADA A FLOAT
         asc_rs  = float(ascmc_rs[0])
         luna_rs = float(planetas_rs['Luna'])
         
         jd_prog = swe.julday(fecha_nac.year, fecha_nac.month, fecha_nac.day, hora_nac, swe.GREG_CAL) + (anio_actual - fecha_nac.year)
+        
+        # EXTRACCIÓN CRÍTICA: [0][0] extrae el número decimal puro
         luna_prog_lon = float(swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0])
 
-        # 5. AUDITORÍA TÉCNICA (Sincronizada con Meridian)
+        # 5. AUDITORÍA TÉCNICA (Sincronizada con Topocéntrico)
         auditoria = (
             f"--- PANEL TÉCNICO RS {anio_actual} (TOPOCÉNTRICO) ---\n"
             f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
