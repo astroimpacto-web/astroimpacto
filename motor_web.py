@@ -69,113 +69,68 @@ MESES_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
 # FUNCIONES DE FORMATEO Y CONVERSIÓN TÉCNICA (BLOQUE DE UTILIDADES)
 # ==============================================================================
 def obtener_signo(lon):
-    """
-    Determina el nombre del signo zodiacal basándose en la longitud eclíptica.
-    Divide el zodiaco de 360 grados en 12 segmentos exactos de 30 grados cada uno.
-    
-    Args:
-        lon (float): Longitud eclíptica del cuerpo celeste en grados decimales.
-        
-    Returns:
-        str: Nombre del signo zodiacal correspondiente (Aries a Piscis).
-    """
-    signos = ["Aries","Tauro","Géminis","Cáncer","Leo","Virgo",
-              "Libra","Escorpio","Sagitario","Capricornio","Acuario","Piscis"]
+    """Determina el signo zodiacal (30° por signo)."""
+    signos = ["Aries","Tauro","Géminis","Cáncer","Leo","Virgo","Libra","Escorpio","Sagitario","Capricornio","Acuario","Piscis"]
     return signos[int(lon / 30) % 12]
 
 def deg_to_dms_sign(lon):
-    """
-    Convierte una longitud decimal en formato de Grados, Minutos y Signo.
-    Es la función principal para generar la auditoría técnica que lee la astróloga 
-    para validar que las posiciones calculadas coincidan con el software profesional.
-    
-    Args:
-        lon (float): Longitud eclíptica decimal.
-        
-    Returns:
-        str: Cadena formateada ej: '15° Tauro 24\''
-    """
-    signos = ["Aries","Tauro","Géminis","Cáncer","Leo","Virgo",
-              "Libra","Escorpio","Sagitario","Capricornio","Acuario","Piscis"]
+    """Formatea la longitud para la auditoría técnica."""
+    signos = ["Aries","Tauro","Géminis","Cáncer","Leo","Virgo","Libra","Escorpio","Sagitario","Capricornio","Acuario","Piscis"]
     signo_idx = int(lon / 30) % 12
-    grados   = int(lon % 30)
-    minutos  = int((lon % 1) * 60)
+    grados, minutos = int(lon % 30), int((lon % 1) * 60)
     return f"{grados:02d}° {signos[signo_idx]} {minutos:02d}'"
 
 def limpiar_hora_precisa(val):
+    """Convierte horas de Excel/Drive a decimal."""
     try:
-        if pd.isna(val) or val == "": return 0.0
-        if hasattr(val, 'hour') and hasattr(val, 'minute'): return val.hour + val.minute/60.0 + val.second/3600.0
-        val_str = str(val).strip()
-        if ':' in val_str:
-            p = val_str.split(':')
-            return float(p[0]) + (float(p[1])/60.0 if len(p)>1 else 0.0) + (float(p[2])/3600.0 if len(p)>2 else 0.0)
-        return float(val_str.replace(',', '.'))
+        if pd.isna(val) or str(val).strip() == "": return 0.0
+        if hasattr(val, 'hour'): return val.hour + val.minute/60.0 + val.second/3600.0
+        v = str(val).strip()
+        if ':' in v:
+            p = v.split(':')
+            h = float(p[0])
+            m = float(p[1]) if len(p) > 1 else 0.0
+            s = float(p[2]) if len(p) > 2 else 0.0
+            return h + m/60.0 + s/3600.0
+        return float(v.replace(',', '.'))
     except: return 0.0
 
 def limpiar_coordenada_dms(valor):
-    """
-    CORRECCIÓN CRÍTICA: Soporta decimales puros (-34.603), DMS de Excel (34.34.00 S),
-    o formatos con símbolos (34° 34' S). Evita saltos de grados geográficos.
-    """
+    """Soporta formato 34.34.00 S, decimales y grados/minutos."""
     if valor is None or str(valor).strip() == "": return 0.0
     if isinstance(valor, (float, int)): return float(valor)
-    
     try:
         v = str(valor).upper().strip()
         negativo = any(h in v for h in ['S', 'W', '-'])
-        
-        # Limpiamos letras de orientación y signos para quedarnos con los números
-        for h in ['S', 'W', 'N', 'E', '-']:
-            v = v.replace(h, '')
-        v = v.strip()
-        
-        # Reemplazamos símbolos raros por espacios
         v_clean = re.sub(r"[^\d\.]", " ", v).strip()
         
-        # Si es un número decimal puro (ej. 34.5667)
-        if v_clean.count('.') == 1 and " " not in v_clean:
+        if v_clean.count('.') == 2:
+            p = v_clean.split('.')
+            res = float(p[0]) + float(p[1])/60.0 + float(p[2])/3600.0
+        elif v_clean.count('.') == 1 and " " not in v_clean:
             res = float(v_clean)
         else:
-            # Si es formato DMS de Excel (34.34.00)
-            if '.' in v_clean and " " not in v_clean:
-                partes = v_clean.split('.')
-            else:
-                # Si es formato con espacios
-                partes = v_clean.split()
-                
-            deg = float(partes[0]) if len(partes) > 0 else 0.0
-            min_val = float(partes[1]) if len(partes) > 1 else 0.0
-            sec_val = float(partes[2]) if len(partes) > 2 else 0.0
-            res = deg + (min_val / 60.0) + (sec_val / 3600.0)
+            partes = v_clean.split()
+            res = float(partes[0]) if len(partes) > 0 else 0.0
+            if len(partes) > 1: res += float(partes[1])/60.0
+            if len(partes) > 2: res += float(partes[2])/3600.0
             
         return -res if negativo else res
-    except: 
-        return 0.0
+    except: return 0.0
 
 def parsear_fecha_excel(valor):
-    try: 
-        # dayfirst=True asegura que 26-04-1987 se interprete como 26 de Abril y no falle
-        return pd.to_datetime(valor, dayfirst=True)
-    except: 
-        return datetime.now()
+    """Parsea fechas de Google Drive de forma segura."""
+    try: return pd.to_datetime(valor, dayfirst=True)
+    except: return datetime.now()
 
 def diferencia_angular(a, b):
-    """
-    Calcula la distancia angular más corta entre dos puntos en un círculo zodiacal de 360 grados.
-    Es una función crítica para la determinación precisa de orbes de aspectos.
-    """
     d = abs(a - b) % 360
     return d if d <= 180 else 360 - d
 
 # ==============================================================================
-# CÁLCULOS ASTROLÓGICOS CENTRALES (LÓGICA MATEMÁTICA PURA)
+# CÁLCULOS ASTROLÓGICOS CENTRALES
 # ==============================================================================
 def obtener_datos_astrologicos(jd, lat, lon):
-    """
-    Calcula efemérides y casas usando el SISTEMA TOPOCÉNTRICO (b'T').
-    Se fuerza el tipo float para evitar errores del motor SwissEph.
-    """
     try:
         planetas = {n: swe.calc_ut(float(jd), i, FLAGS)[0][0] for n, i in PLANETAS_NATALES}
         casas, ascmc = swe.houses(float(jd), float(lat), float(lon), b'T')
@@ -185,21 +140,25 @@ def obtener_datos_astrologicos(jd, lat, lon):
 
 def calcular_posiciones_base(cliente):
     """
-    Genera el set base leyendo Hora_UT para evitar saltos del Ascendente.
-    Busca de forma robusta los nombres de columna corregidos en el Drive.
+    Lee datos priorizando las columnas de Hora Universal (UT) para evitar desfases.
     """
-    f = parsear_fecha_excel(cliente.get('Fecha_UT', cliente.get('Fecha')))
-    if f is None: raise ValueError("Fecha no válida en el registro")
+    # 1. Búsqueda de Fecha (Priorizando UT)
+    f_val = cliente.get('Fecha_UT', cliente.get('Fecha'))
+    f = parsear_fecha_excel(f_val)
+    if f is None: raise ValueError("Fecha no válida")
     
-    # Prioridad absoluta a la columna de Hora Universal
-    h = limpiar_hora_precisa(cliente.get('Hora_UT', cliente.get('Hora:UT', cliente.get('Hora', '12:00:00'))))
+    # 2. Búsqueda de Hora (Priorizando UT)
+    h_val = cliente.get('Hora_UT', cliente.get('Hora:UT', cliente.get('Hora', '12:00:00')))
+    h = limpiar_hora_precisa(h_val)
     
     lat = limpiar_coordenada_dms(cliente.get('Latitud', 0))
     lon = limpiar_coordenada_dms(cliente.get('Longitud', 0))
     
     jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
     planetas, casas, ascmc = obtener_datos_astrologicos(jd, lat, lon)
+    
     return planetas, casas, ascmc, f, h, lat, lon
+
     
 # ==============================================================================
 # PROCESO 1: REVOLUCIÓN SOLAR (ESTRUCTURA DE 15 BLOQUES SIN RECORTES)
@@ -207,18 +166,14 @@ def calcular_posiciones_base(cliente):
 
 def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, lugar_rs=None):
     try:
-        # 1. CARGA DE DATOS (7 variables)
         planetas_nat, casas_nat, ascmc_nat, fecha_nac, hora_nac, lat_nat, lon_nat = calcular_posiciones_base(cliente)
         
-        # Estas 3 variables son las que te marcaban error en la imagen:
         nombre = cliente.get('Nombres', 'Consultante')
-        anio_actual = datetime.now().year
-        
         sol_natal  = float(planetas_nat['Sol'])
         luna_natal = float(planetas_nat['Luna'])
         asc_nat    = float(ascmc_nat[0])
 
-        # 2. Hallar momento exacto del Retorno Solar
+        anio_actual = datetime.now().year
         jd_rs = swe.julday(anio_actual, fecha_nac.month, max(1, fecha_nac.day - 1), 0.0, swe.GREG_CAL)
         for _ in range(50):
             sol_ahora = swe.calc_ut(jd_rs, swe.SUN, FLAGS)[0][0]
@@ -228,12 +183,10 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             if abs(diff) < 0.000001: break
             jd_rs += diff / 0.9856 
 
-        # 3. Ubicación de la Revolución Solar
         lat_calc = limpiar_coordenada_dms(lat_rs) if lat_rs else lat_nat
         lon_calc = limpiar_coordenada_dms(lon_rs) if lon_rs else lon_nat
         lugar_final = lugar_rs if lugar_rs else "Ubicación natal"
         
-        # 4. Efemérides de RS y Progresiones
         planetas_rs, casas_rs, ascmc_rs = obtener_datos_astrologicos(jd_rs, lat_calc, lon_calc)
         
         asc_rs  = float(ascmc_rs[0])
@@ -242,16 +195,15 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
         jd_prog = swe.julday(fecha_nac.year, fecha_nac.month, fecha_nac.day, hora_nac, swe.GREG_CAL) + (anio_actual - fecha_nac.year)
         luna_prog_lon = float(swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0])
 
-        # 5. Auditoría técnica (Esta es la variable 'auditoria' que faltaba)
         auditoria = (
             f"--- PANEL TÉCNICO RS {anio_actual} (TOPOCÉNTRICO) ---\n"
-            f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
+            f"DATOS: UT {hora_nac:.4f}h | Lat {lat_nat:.4f} | Lon {lon_nat:.4f}\n"
+            f"NATAL: Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)}\n"
             f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(luna_rs)}\n"
             f"UBICACIÓN RS: {lugar_final}\n"
             f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
             f"-----------------------------------"
-        )
-    
+        )    
         # 6. PROMPT BLINDADO: 15 BLOQUES CON ANCLAJE DE SEGURIDAD Y REGLA ANTI-ALUCINACIÓN
         # Esta estructura garantiza que la IA no invente datos ni mueva los textos de casilla.
         rol    = "Eres Patricia Ramirez, astróloga profesional de alto nivel. Tu estilo es profundo, detallado y empático."
