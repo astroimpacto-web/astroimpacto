@@ -349,7 +349,7 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
     """Genera el análisis profundo y profesional de la Carta Natal del consultante."""
     try:
         nombre = cliente.get('Nombres', 'Consultante')
-        planetas, asc, mc, f_nac, h_nac, lat, lon = calcular_posiciones_base_completa(cliente)
+        planetas, asc, mc, f_nac, h_nac, lat, lon = calcular_posiciones_base(cliente)
 
         rol    = "Eres Patricia Ramirez, astróloga profesional de alto nivel. Redacta de forma psicológica y extensa."
         prompt = (
@@ -420,7 +420,7 @@ def procesar_transitos_con_ia(cliente, tipo_obj, id_cli):
     """Genera la bitácora personalizada de tránsitos planetarios anuales."""
     try:
         nombre = cliente.get('Nombres', 'Consultante')
-        p_nat, asc_nat, mc_nat, f_nac, h_nac, lat_n, lon_n = calcular_posiciones_base_completa(cliente)
+        p_nat, asc_nat, mc_nat, f_nac, h_nac, lat_n, lon_n = calcular_posiciones_base(cliente)
         anio_actual = datetime.now().year
         pos_natales = {"Sol": p_nat["Sol"], "Luna": p_nat["Luna"], "Ascendente": asc_nat}
 
