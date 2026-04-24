@@ -172,69 +172,31 @@ def diferencia_angular(a, b):
 # CÁLCULOS ASTROLÓGICOS CENTRALES (LÓGICA MATEMÁTICA PURA)
 # ==============================================================================
 def obtener_datos_astrologicos(jd, lat, lon):
-    try:
-        planetas = {}
-        for b_name, b_id in PLANETAS_NATALES:
-            planetas[b_name] = swe.calc_ut(jd, b_id, FLAGS)[0][0]
-            
-        # SISTEMA TOPOCÉNTRICO (b'T') ASEGURADO PARA ARGENTINA/MERIDIAN
-        casas, ascmc = swe.houses(jd, lat, lon, b'T')
-        return planetas, casas, ascmc
-    except Exception as e:
-        raise ValueError(f"Fallo en motor de casas Topocéntrico: {e}")
-
-def calcular_posiciones_base(cliente):
     """
-    Búsqueda agresiva para garantizar que la Fecha UT y Hora UT sean leídas.
-    Evita que el Ascendente se desplace 3 o 4 horas al usar el tiempo local por error.
+    Calcula efemérides y casas usando el SISTEMA TOPOCÉNTRICO (b'T').
+    Se fuerza el tipo float para evitar errores del motor SwissEph.
     """
-    # 1. Búsqueda exhaustiva de Fecha (Priorizando UT)
-    f_val = cliente.get('Fecha')
-    for col in ['Fecha_UT', 'Fecha_Ut', 'FECHA_UT', 'Fecha:UT', 'Fecha UT']:
-        if col in cliente and pd.notna(cliente[col]) and str(cliente[col]).strip() != "":
-            f_val = cliente[col]
-            break
-            
-    f = parsear_fecha_excel(f_val)
-    if f is None: raise ValueError("Fecha no válida en el registro")
-    
-    # 2. Búsqueda exhaustiva de Hora UT (LA CLAVE DEL ASCENDENTE)
-    h_val = cliente.get('Hora', '12:00:00')
-    for col in ['Hora_UT', 'Hora_Ut', 'HORA_UT', 'Hora:UT', 'Hora UT']:
-        if col in cliente and pd.notna(cliente[col]) and str(cliente[col]).strip() != "":
-            h_val = cliente[col]
-            break
-            
-    h = limpiar_hora_precisa(h_val)
-    
-    lat = limpiar_coordenada_dms(cliente.get('Latitud', 0))
-    lon = limpiar_coordenada_dms(cliente.get('Longitud', 0))
-    
-    # JD con calendario Gregoriano estricto
-    jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
-    planetas, casas, ascmc = obtener_datos_astrologicos(jd, lat, lon)
-    
-    return planetas, casas, ascmc, f, h, lat, lon
-
-# ==============================================================================
-# CÁLCULOS ASTROLÓGICOS CENTRALES (LÓGICA MATEMÁTICA PURA)
-# ==============================================================================
-
-def obtener_datos_astrologicos(jd, lat, lon):
     try:
         planetas = {n: swe.calc_ut(float(jd), i, FLAGS)[0][0] for n, i in PLANETAS_NATALES}
-        # SISTEMA TOPOCÉNTRICO (b'T')
         casas, ascmc = swe.houses(float(jd), float(lat), float(lon), b'T')
         return planetas, casas, ascmc
     except Exception as e:
         raise ValueError(f"Fallo en motor Topocéntrico: {e}")
 
 def calcular_posiciones_base(cliente):
-    """Prioriza Hora:UT para evitar desfase de Ascendente."""
+    """
+    Genera el set base leyendo Hora_UT para evitar saltos del Ascendente.
+    Busca de forma robusta los nombres de columna corregidos en el Drive.
+    """
     f = parsear_fecha_excel(cliente.get('Fecha_UT', cliente.get('Fecha')))
-    h = limpiar_hora_precisa(cliente.get('Hora:UT', cliente.get('Hora_UT', cliente.get('Hora', '12:00:00'))))
+    if f is None: raise ValueError("Fecha no válida en el registro")
+    
+    # Prioridad absoluta a la columna de Hora Universal
+    h = limpiar_hora_precisa(cliente.get('Hora_UT', cliente.get('Hora:UT', cliente.get('Hora', '12:00:00'))))
+    
     lat = limpiar_coordenada_dms(cliente.get('Latitud', 0))
     lon = limpiar_coordenada_dms(cliente.get('Longitud', 0))
+    
     jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
     planetas, casas, ascmc = obtener_datos_astrologicos(jd, lat, lon)
     return planetas, casas, ascmc, f, h, lat, lon
@@ -245,29 +207,50 @@ def calcular_posiciones_base(cliente):
 
 def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, lugar_rs=None):
     try:
-        p_nat, c_nat, a_nat, f_nac, h_nac, lat_n, lon_n = calcular_posiciones_base(cliente)
-        sol_n, luna_n, asc_n = float(p_nat['Sol']), float(p_nat['Luna']), float(a_nat[0])
+        # 1. CARGA DE DATOS (7 variables)
+        planetas_nat, casas_nat, ascmc_nat, fecha_nac, hora_nac, lat_nat, lon_nat = calcular_posiciones_base(cliente)
         
-        anio = datetime.now().year
-        jd_rs = swe.julday(anio, f_nac.month, max(1, f_nac.day - 1), 0.0, swe.GREG_CAL)
+        # Estas 3 variables son las que te marcaban error en la imagen:
+        nombre = cliente.get('Nombres', 'Consultante')
+        anio_actual = datetime.now().year
+        
+        sol_natal  = float(planetas_nat['Sol'])
+        luna_natal = float(planetas_nat['Luna'])
+        asc_nat    = float(ascmc_nat[0])
+
+        # 2. Hallar momento exacto del Retorno Solar
+        jd_rs = swe.julday(anio_actual, fecha_nac.month, max(1, fecha_nac.day - 1), 0.0, swe.GREG_CAL)
         for _ in range(50):
-            s_ahora = swe.calc_ut(jd_rs, swe.SUN, FLAGS)[0][0]
-            diff = sol_n - s_ahora
-            if diff > 180: diff -= 360
+            sol_ahora = swe.calc_ut(jd_rs, swe.SUN, FLAGS)[0][0]
+            diff = sol_natal - sol_ahora
+            if diff > 180:   diff -= 360
             elif diff < -180: diff += 360
             if abs(diff) < 0.000001: break
             jd_rs += diff / 0.9856 
 
-        l_calc, o_calc = (limpiar_coordenada_dms(lat_rs), limpiar_coordenada_dms(lon_rs)) if lat_rs else (lat_n, lon_n)
-        p_rs, c_rs, a_rs = obtener_datos_astrologicos(jd_rs, l_calc, o_calc)
-        asc_rs, luna_rs = float(a_rs[0]), float(p_rs['Luna'])
+        # 3. Ubicación de la Revolución Solar
+        lat_calc = limpiar_coordenada_dms(lat_rs) if lat_rs else lat_nat
+        lon_calc = limpiar_coordenada_dms(lon_rs) if lon_rs else lon_nat
+        lugar_final = lugar_rs if lugar_rs else "Ubicación natal"
         
-        jd_prog = swe.julday(f_nac.year, f_nac.month, f_nac.day, h_nac, swe.GREG_CAL) + (anio - f_nac.year)
-        luna_prog = float(swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0])
+        # 4. Efemérides de RS y Progresiones
+        planetas_rs, casas_rs, ascmc_rs = obtener_datos_astrologicos(jd_rs, lat_calc, lon_calc)
+        
+        asc_rs  = float(ascmc_rs[0])
+        luna_rs = float(planetas_rs['Luna'])
+        
+        jd_prog = swe.julday(fecha_nac.year, fecha_nac.month, fecha_nac.day, hora_nac, swe.GREG_CAL) + (anio_actual - fecha_nac.year)
+        luna_prog_lon = float(swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0])
 
-        auditoria = (f"--- PANEL TÉCNICO RS {anio} ---\nNATAL: Asc {deg_to_dms_sign(asc_n)} | Sol {deg_to_dms_sign(sol_n)}\n"
-                    f"RS: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(luna_rs)}\nPROG: Luna en {deg_to_dms_sign(luna_prog)}")
-        
+        # 5. Auditoría técnica (Esta es la variable 'auditoria' que faltaba)
+        auditoria = (
+            f"--- PANEL TÉCNICO RS {anio_actual} (TOPOCÉNTRICO) ---\n"
+            f"NATAL:  Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
+            f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(luna_rs)}\n"
+            f"UBICACIÓN RS: {lugar_final}\n"
+            f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
+            f"-----------------------------------"
+        )
     
         # 6. PROMPT BLINDADO: 15 BLOQUES CON ANCLAJE DE SEGURIDAD Y REGLA ANTI-ALUCINACIÓN
         # Esta estructura garantiza que la IA no invente datos ni mueva los textos de casilla.
