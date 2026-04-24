@@ -258,7 +258,7 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
             partes = ["(Información no generada por error de conexión con el motor IA)"] * 15
 
         # Relleno de seguridad para evitar errores de índice en la plantilla HTML
-        while len(partes) < 15:
+        while len(partes) < 16:
             partes.append("")
 
         def procesar_lista(texto):
@@ -273,30 +273,31 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
         # Sincronización exacta con la interfaz de usuario y la plantilla de reporte.
         # Bloque 14 (Índice 13) es el Plan de Acción.
         # Bloque 15 (Índice 14) es la Vida Afectiva/Situación Emocional.
-        return {
-            "nombre_cliente":             nombre,
-            "titulo_informe":             f"Revolución Solar {anio_actual}",
-            "anio_actual":                anio_actual,
-            "auditoria_tecnica":          auditoria,
+ return {
+            "nombre_cliente": nombre, 
+            "titulo_informe": f"Revolución Solar {anio_actual}", 
+            "anio_actual": anio_actual, 
+            "auditoria_tecnica": auditoria,
             "perspectivas": {
-                "transformacion": partes[0], # Bloque 1
-                "oportunidades":  partes[1], # Bloque 2
-                "cambio":         partes[2], # Bloque 3
-                "relaciones":     partes[3], # Bloque 4
+                "transformacion": partes[0], 
+                "oportunidades": partes[1], 
+                "cambio": partes[2], 
+                "relaciones": partes[3]
             },
-            "intro_texto":                 partes[4], # Bloque 5
-            "carta_natal_resumen":         partes[5], # Bloque 6 (Libre de alucinaciones de signos)
-            "transitos_personales":        partes[6], # Bloque 7
-            "progresiones_secundarias":    partes[7], # Bloque 8
-            "como_actuar_progresiones":    procesar_lista(partes[8]), # Bloque 9
-            "revolucion_solar_general_1":  partes[9], # Bloque 10
-            "revo_propone":                procesar_lista(partes[10]), # Bloque 11
-            "situacion_laboral_economica": partes[12], # Bloque 12
-            "logro_objetivos_profesionales": procesar_lista(partes[12]), # Bloque 13
+            "intro_texto": partes[4], 
+            "carta_natal_resumen": partes[5], 
+            "transitos_personales": partes[6], 
+            "progresiones_secundarias": partes[7],
+            "como_actuar_progresiones": procesar_lista(partes[8]), 
+            "revolucion_solar_general_1": partes[9], 
+            "revo_propone": procesar_lista(partes[10]),
             
-            # EL INTERCAMBIO SE REALIZA AQUÍ: Bloque 14 es el Plan y el 15 la Vida Afectiva.
-            "plan_accion_objetivos":       procesar_lista(partes[13]), # Bloque 14 (Plan Final)
-            "situacion_emocional":         partes[15],                 # Bloque 15 (Afectiva)
+            # --- ASIGNACIÓN EXACTA AL ORDEN DEL PROMPT ---
+            "situacion_laboral_economica": partes[11],                   # Bloque 12 (Laboral)
+            "logro_objetivos_profesionales": procesar_lista(partes[12]), # Bloque 13 (Obj. Profesionales)
+            "plan_accion_objetivos": procesar_lista(partes[13]),         # Bloque 14 (Plan de Acción)
+            "situacion_emocional": partes[14],                           # Bloque 15 (Vida Afectiva)
+            # -----------------------------------------------------------
             
             "panorama_trimestral": [
                 {"titulo": "Primer Trimestre",   "texto": "Inicio del ciclo con foco en la energía del Ascendente Anual."},
