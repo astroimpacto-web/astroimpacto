@@ -133,6 +133,7 @@ def diferencia_angular(a, b):
 def obtener_datos_astrologicos(jd, lat, lon):
     try:
         planetas = {n: swe.calc_ut(float(jd), i, FLAGS)[0][0] for n, i in PLANETAS_NATALES}
+        # SISTEMA TOPOCÉNTRICO (b'T') ASEGURADO
         casas, ascmc = swe.houses(float(jd), float(lat), float(lon), b'T')
         return planetas, casas, ascmc
     except Exception as e:
@@ -141,9 +142,10 @@ def obtener_datos_astrologicos(jd, lat, lon):
 def calcular_posiciones_base(cliente):
     """
     Lee datos priorizando las columnas de Hora Universal (UT) para evitar desfases.
+    Aplica el calendario Gregoriano.
     """
     # 1. Búsqueda de Fecha (Priorizando UT)
-    f_val = cliente.get('Fecha_UT', cliente.get('Fecha'))
+    f_val = cliente.get('Fecha_UT', cliente.get('Fecha:UT', cliente.get('Fecha')))
     f = parsear_fecha_excel(f_val)
     if f is None: raise ValueError("Fecha no válida")
     
@@ -154,6 +156,7 @@ def calcular_posiciones_base(cliente):
     lat = limpiar_coordenada_dms(cliente.get('Latitud', 0))
     lon = limpiar_coordenada_dms(cliente.get('Longitud', 0))
     
+    # JD con calendario Gregoriano estricto (igual que en local)
     jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
     planetas, casas, ascmc = obtener_datos_astrologicos(jd, lat, lon)
     
