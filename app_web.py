@@ -209,7 +209,7 @@ def normalizar_columnas(df):
             if col in alias_list and interno not in df.columns:
                 df.rename(columns={col: interno}, inplace=True)
     return df
-
+    
 @st.cache_data(ttl=5)
 def cargar_bases_web():
     try:
@@ -225,9 +225,8 @@ def cargar_bases_web():
             df_c['id_consultante'] = df_c['id_consultante'].astype(str).str.replace('.0', '', regex=False).strip()
         return df_c
     except Exception as e:
-        st.error(f"Error cargando datos: {e}")
+        st.sidebar.error(f"Error cargando datos: {e}")
         return pd.DataFrame()
-
 # ==============================================================================
 # 5. NAVEGACIÓN Y PANEL DE AUDITORÍA TÉCNICA
 # ==============================================================================
@@ -359,33 +358,37 @@ elif modo_app == "⚙️ Taller de Informes":
                 es_revolucion_final = True
 
 # --- PANEL DE DIAGNÓSTICO DE DATOS (VALORES REALES) ---
-            st.sidebar.markdown("<p style='font-size:0.75rem; font-weight:700; margin-top:10px;'>📊 VISTA PREVIA DE DATOS CRUDA</p>", unsafe_allow_html=True)
-            
-            # Captura de valores tal cual vienen del Drive
-            f_raw = cli_obj.get('Fecha_UT', cli_obj.get('Fecha', '---'))
-            h_raw = cli_obj.get('Hora_UT', cli_obj.get('Hora:UT', cli_obj.get('Hora', '---')))
-            lat_raw = cli_obj.get('Latitud', '0.0')
-            lon_raw = cli_obj.get('Longitud', '0.0')
-            
-            # Procesamiento técnico para mostrar el decimal que usará el motor
-            import motor_web
-            lat_dec = motor_web.limpiar_coordenada_dms(lat_raw)
-            lon_dec = motor_web.limpiar_coordenada_dms(lon_raw)
-            h_dec = motor_web.limpiar_hora_precisa(h_raw)
-            
-            diag_html = f"""
-            <div class='diag-box'>
-                <div class='diag-item'><span>📅 Fecha:</span> <span class='diag-val'>{f_raw}</span></div>
-                <div class='diag-item'><span>⏰ Hora UT:</span> <span class='diag-val'>{h_raw} ({h_dec:.2f}h)</span></div>
-                <div class='diag-item'><span>📍 Latitud:</span> <span class='diag-val'>{lat_dec:.4f}</span></div>
-                <div class='diag-item'><span>📍 Longitud:</span> <span class='diag-val'>{lon_dec:.4f}</span></div>
-            </div>
-            """
-            st.sidebar.markdown(diag_html, unsafe_allow_html=True)
-            
-            # Alerta de seguridad si la hora no se pudo convertir
-            if h_dec == 0.0 and str(h_raw) != "0":
-                st.sidebar.warning("⚠️ La hora no se reconoce. Revisa el formato en el Drive.")
+
+def mostrar_diagnostico(cli_obj):
+    st.sidebar.markdown("<p style='font-size:0.75rem; font-weight:700; margin-top:10px;'>📊 VISTA PREVIA DE DATOS CRUDA</p>", unsafe_allow_html=True)
+    
+    # Captura con prioridad absoluta a lo que diga UT gracias al mapeo
+    f_final = cli_obj.get('Fecha_UT', cli_obj.get('Fecha', '---'))
+    h_final = cli_obj.get('Hora_UT', cli_obj.get('Hora', '---'))
+    lat_raw = cli_obj.get('Latitud', '0.0')
+    lon_raw = cli_obj.get('Longitud', '0.0')
+    
+    # Procesamiento técnico para ver qué número usará el motor SwissEph
+    lat_dec = motor_web.limpiar_coordenada_dms(lat_raw)
+    lon_dec = motor_web.limpiar_coordenada_dms(lon_raw)
+    h_dec = motor_web.limpiar_hora_precisa(h_final)
+    
+    diag_html = f"""
+    <div class='diag-box'>
+        <div class='diag-item'><span>📅 Fecha:</span> <span class='diag-val'>{f_final}</span></div>
+        <div class='diag-item'><span>⏰ Hora UT:</span> <span class='diag-val'>{h_final} ({h_dec:.2f}h)</span></div>
+        <div class='diag-item'><span>📍 Latitud:</span> <span class='diag-val'>{lat_dec:.4f}</span></div>
+        <div class='diag-item'><span>📍 Longitud:</span> <span class='diag-val'>{lon_dec:.4f}</span></div>
+    </div>
+    """
+    st.sidebar.markdown(diag_html, unsafe_allow_html=True)
+    
+    # Alertas de seguridad
+    if h_dec == 0.0 and str(h_final) != "0":
+        st.sidebar.warning("⚠️ La hora no se reconoce. Revisa el formato en el Drive.")
+    elif h_dec < 10.0 and "10:" in str(h_final):
+         st.sidebar.error("⚠️ Error de lectura crítico: Se detectó hora local en lugar de UT.")
+
 
             # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR ---
             lat_rs = None
