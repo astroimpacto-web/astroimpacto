@@ -184,68 +184,49 @@ if 'idx_prog_actual' not in st.session_state:
 # 4. CARGA Y NORMALIZACIÓN ROBUSTA DE BASES DE DATOS (GOOGLE SHEETS)
 # ==============================================================================
 @st.cache_data(ttl=5)
+def normalizar_columnas(df):
+    """
+    Mapea las columnas del Drive a nombres internos, 
+    asegurando que Hora_UT nunca sea confundida con la hora local.
+    """
+    # 1. Limpieza inicial: quitamos espacios y carácteres especiales como ":"
+    # Esto transforma "Hora:UT" en "Hora_UT" automáticamente.
+    df.columns = [c.replace(':', '_').replace(' ', '_').strip() for c in df.columns]
+    
+    mapa_columnas = {
+        'id_consultante': ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli', 'CODIGO'],
+        'Fecha_UT': ['Fecha_UT', 'FECHA_UT', 'Fecha_Ut', 'Fecha_Universal'],
+        'Hora_UT': ['Hora_UT', 'HORA_UT', 'Hora_Ut', 'Hora_Universal'],
+        'Fecha': ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac'],
+        'Hora': ['hora', 'HORA', 'BirthTime', 'Hora_Nac', 'TIME'],
+        'Latitud': ['lat', 'latitud', 'LATITUD', 'Lat', 'COOR_LAT'],
+        'Longitud': ['lon', 'longitud', 'LONGITUD', 'Lon', 'COOR_LON'],
+        'Nombres': ['Nombre', 'NOMBRE', 'Nombres', 'NAME', 'Consultante']
+    }
+    
+    for interno, alias_list in mapa_columnas.items():
+        for col in df.columns:
+            if col in alias_list and interno not in df.columns:
+                df.rename(columns={col: interno}, inplace=True)
+    return df
+
+@st.cache_data(ttl=5)
 def cargar_bases_web():
-    """
-    Descarga datos de Sheets y unifica nombres de columnas.
-    Se utiliza una estructura extensa para evitar errores de compresión.
-    """
     try:
         url_secreta = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        
-        if "/d/" in url_secreta:
-            parte_1 = url_secreta.split("/d/")[1]
-            sheet_id = parte_1.split("/")[0]
-        else:
-            sheet_id = url_secreta
-            
+        sheet_id = url_secreta.split("/d/")[1].split("/")[0]
         u_cli = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Consultantes"
-        u_prog = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Informes_Programados"
-        
         df_c = pd.read_csv(u_cli).dropna(how="all")
-        df_p = pd.read_csv(u_prog).dropna(how="all")
-
-        # Diccionario de Mapeo Inteligente Extendido
-        mapa_columnas = {
-            'id_consultante': ['id', 'Id', 'ID', 'IDENTIFICADOR', 'id_cli', 'id_consultante', 'CODIGO', 'ID_CONSULTANTE'],
-            'Fecha': ['fecha', 'FECHA', 'BirthDate', 'Nacimiento', 'Fecha_Nac', 'FECHA NACIMIENTO', 'FECHA_NACIMIENTO', 'DATE'],
-            'Hora': ['hora', 'HORA', 'BirthTime', 'Hora_Nac', 'HORA NACIMIENTO', 'HORA_NACIMIENTO', 'TIME', 'TIEMPO'],
-            'Latitud': ['lat', 'latitud', 'LATITUD', 'Lat', 'LAT', 'COOR_LAT', 'LAT_NAC', 'latitude', 'LATITUD NACIMIENTO'],
-            'Longitud': ['lon', 'longitud', 'LONGITUD', 'Lon', 'Lng', 'lng', 'LON', 'COOR_LON', 'LON_NAC', 'longitude', 'LONGITUD NACIMIENTO'],
-            'Nombres': ['Nombre', 'NOMBRE', 'Nombres', 'NAME', 'Consultante', 'CLIENTE', 'nombre']
-        }
-
-        # Normalizamos DataFrame de Consultantes
-        if not df_c.empty:
-            df_c.columns = df_c.columns.str.strip()
-            for destino, sinonimos in mapa_columnas.items():
-                for s in sinonimos:
-                    if s in df_c.columns and destino not in df_c.columns:
-                        df_c.rename(columns={s: destino}, inplace=True)
-            
-            if 'id_consultante' in df_c.columns:
-                df_c['id_consultante'] = df_c['id_consultante'].astype(str)
-                df_c['id_consultante'] = df_c['id_consultante'].str.replace('.0', '', regex=False)
-                df_c['id_consultante'] = df_c['id_consultante'].str.strip()
-
-        # Normalizamos DataFrame de Programados
-        if not df_p.empty:
-            df_p.columns = df_p.columns.str.strip()
-            for destino, sinonimos in mapa_columnas.items():
-                for s in sinonimos:
-                    if s in df_p.columns and destino not in df_p.columns:
-                        df_p.rename(columns={s: destino}, inplace=True)
-            
-            if 'id_consultante' in df_p.columns:
-                df_p['id_consultante'] = df_p['id_consultante'].astype(str)
-                df_p['id_consultante'] = df_p['id_consultante'].str.replace('.0', '', regex=False)
-                df_p['id_consultante'] = df_p['id_consultante'].str.strip()
         
-        return df_c, df_p
+        # Aplicamos el mapeo corregido para proteger la Hora_UT
+        df_c = normalizar_columnas(df_c)
+        
+        if 'id_consultante' in df_c.columns:
+            df_c['id_consultante'] = df_c['id_consultante'].astype(str).str.replace('.0', '', regex=False).strip()
+        return df_c
     except Exception as e:
-        st.sidebar.error(f"⚠️ Error conectando a Google Sheets: {e}")
-        return pd.DataFrame(), pd.DataFrame()
-
-df_cli, df_prog = cargar_bases_web()
+        st.error(f"Error cargando datos: {e}")
+        return pd.DataFrame()
 
 # ==============================================================================
 # 5. NAVEGACIÓN Y PANEL DE AUDITORÍA TÉCNICA
@@ -377,38 +358,34 @@ elif modo_app == "⚙️ Taller de Informes":
             elif "Solar" in sel_p:
                 es_revolucion_final = True
 
-            # --- PANEL DE DIAGNÓSTICO DE DATOS (NO COLAPSADO) ---
-            st.sidebar.markdown("<p style='font-size:0.7rem; font-weight:700; margin-top:10px;'>📊 DIAGNÓSTICO DE DATOS</p>", unsafe_allow_html=True)
+# --- PANEL DE DIAGNÓSTICO DE DATOS (VALORES REALES) ---
+            st.sidebar.markdown("<p style='font-size:0.75rem; font-weight:700; margin-top:10px;'>📊 VISTA PREVIA DE DATOS CRUDA</p>", unsafe_allow_html=True)
             
-            if "Fecha" in cli_obj and not pd.isna(cli_obj["Fecha"]):
-                check_fecha = "✅"
-            else:
-                check_fecha = "❌"
-                
-            if "Hora" in cli_obj and not pd.isna(cli_obj["Hora"]):
-                check_hora = "✅"
-            else:
-                check_hora = "❌"
-                
-            if "Latitud" in cli_obj and not pd.isna(cli_obj["Latitud"]):
-                check_lat = "✅"
-            else:
-                check_lat = "❌"
-                
-            if "Longitud" in cli_obj and not pd.isna(cli_obj["Longitud"]):
-                check_lon = "✅"
-            else:
-                check_lon = "❌"
+            # Captura de valores tal cual vienen del Drive
+            f_raw = cli_obj.get('Fecha_UT', cli_obj.get('Fecha', '---'))
+            h_raw = cli_obj.get('Hora_UT', cli_obj.get('Hora:UT', cli_obj.get('Hora', '---')))
+            lat_raw = cli_obj.get('Latitud', '0.0')
+            lon_raw = cli_obj.get('Longitud', '0.0')
+            
+            # Procesamiento técnico para mostrar el decimal que usará el motor
+            import motor_web
+            lat_dec = motor_web.limpiar_coordenada_dms(lat_raw)
+            lon_dec = motor_web.limpiar_coordenada_dms(lon_raw)
+            h_dec = motor_web.limpiar_hora_precisa(h_raw)
             
             diag_html = f"""
             <div class='diag-box'>
-                <div class='diag-item'><span>Fecha Nac:</span> <span>{check_fecha}</span></div>
-                <div class='diag-item'><span>Hora Nac:</span> <span>{check_hora}</span></div>
-                <div class='diag-item'><span>Latitud:</span> <span>{check_lat}</span></div>
-                <div class='diag-item'><span>Longitud:</span> <span>{check_lon}</span></div>
+                <div class='diag-item'><span>📅 Fecha:</span> <span class='diag-val'>{f_raw}</span></div>
+                <div class='diag-item'><span>⏰ Hora UT:</span> <span class='diag-val'>{h_raw} ({h_dec:.2f}h)</span></div>
+                <div class='diag-item'><span>📍 Latitud:</span> <span class='diag-val'>{lat_dec:.4f}</span></div>
+                <div class='diag-item'><span>📍 Longitud:</span> <span class='diag-val'>{lon_dec:.4f}</span></div>
             </div>
             """
             st.sidebar.markdown(diag_html, unsafe_allow_html=True)
+            
+            # Alerta de seguridad si la hora no se pudo convertir
+            if h_dec == 0.0 and str(h_raw) != "0":
+                st.sidebar.warning("⚠️ La hora no se reconoce. Revisa el formato en el Drive.")
 
             # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR ---
             lat_rs = None
