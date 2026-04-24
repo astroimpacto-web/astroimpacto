@@ -144,42 +144,33 @@ def diferencia_angular(a, b):
 
 def obtener_datos_astrologicos(jd, lat, lon):
     """
-    Calcula efemérides y casas usando el SISTEMA TOPOCÉTRICO (b'T').
+    Calcula efemérides y casas usando el SISTEMA TOPOCÉNTRICO (b'T').
     Fuerza el tipo float para evitar el error 'swisseph.houses: error'.
     """
     try:
         planetas = {name: swe.calc_ut(float(jd), id_p, FLAGS)[0][0] for name, id_p in PLANETAS_NATALES}
-        # IMPORTANTE: Cambiado a b'T' para coincidir con tu Meridian local
+        # IMPORTANTE: Definido en b'T' (Topocéntrico) para máxima precisión
         casas, ascmc = swe.houses(float(jd), float(lat), float(lon), b'T')
         return planetas, casas, ascmc
     except Exception as e:
         raise ValueError(f"Fallo en motor de casas Topocéntrico: {e}")
 
-
-# ==============================================================================
-# BLOQUE 3: CÁLCULOS BASE (RETORNO DE 7 VARIABLES - IGUAL A LOCAL)
-# Reemplaza la función "calcular_posiciones_base" por esta:
-# ==============================================================================
 def calcular_posiciones_base(cliente):
-    """
-    Restauración total versión local: 7 variables y Hora UT directa.
-    Usa GREG_CAL para precisión profesional en el Ascendente Natal.
-    """
-    f = limpiar_fecha(cliente.get('Fecha'))
-    if f is None: raise ValueError("Fecha no válida en el registro")
+    """Genera el set de 7 variables fundamentales de tu versión local."""
+    # AHORA USA LAS FUNCIONES DEL PASO 1
+    f = parsear_fecha_excel(cliente.get('Fecha'))
+    if f is None: raise ValueError("Fecha no válida")
     
-    # El Excel ya trae la hora universal (UT), la usamos directa
-    h = limpiar_hora(cliente.get('Hora', '12:00:00'))
-    lat = limpiar_coordenada(cliente.get('Latitud', 0))
-    lon = limpiar_coordenada(cliente.get('Longitud', 0))
+    # El Excel ya trae hora universal (UT), no se modifica nada.
+    h = limpiar_hora_precisa(cliente.get('Hora', '12:00:00'))
+    lat = limpiar_coordenada_dms(cliente.get('Latitud', 0))
+    lon = limpiar_coordenada_dms(cliente.get('Longitud', 0))
     
-    # JD con calendario Gregoriano estricto
+    # JD con calendario Gregoriano
     jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
     planetas, casas, ascmc = obtener_datos_astrologicos(jd, lat, lon)
     
     return planetas, casas, ascmc, f, h, lat, lon
-
-
     
 # ==============================================================================
 # PROCESO 1: REVOLUCIÓN SOLAR (ESTRUCTURA DE 15 BLOQUES SIN RECORTES)
