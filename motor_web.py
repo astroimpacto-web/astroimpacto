@@ -212,7 +212,7 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
     asegurando que los 15 bloques de información caigan en sus casillas exactas 
     según el diseño visual definido por Patricia Ramirez.
     """
-      try:
+    try:
         # 1. RECUPERACIÓN ÚNICA DE DATOS (7 variables según tu local)
         planetas_nat, casas_nat, ascmc_nat, fecha_nac, hora_nac, lat_nat, lon_nat = calcular_posiciones_base(cliente)
         
