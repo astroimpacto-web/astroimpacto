@@ -103,52 +103,32 @@ def deg_to_dms_sign(lon):
     minutos  = int((lon % 1) * 60)
     return f"{grados:02d}° {signos[signo_idx]} {minutos:02d}'"
 
-def limpiar_coordenada(valor):
-    """
-    Soporta decimales puros del mapa (-34.603) y formato DMS de Excel (34.36 S).
-    Arregla el error de David (27° Piscis / 18° Sagitario) al no confundir decimales con minutos.
-    """
-    if valor is None or str(valor).strip() == "": return 0.0
-    if isinstance(valor, (float, int)): return float(valor)
-    
+def limpiar_hora_precisa(val):
     try:
-        v = str(valor).upper().strip()
-        # Identificamos el signo negativo por letra o por guion
-        negativo = any(h in v for h in ['S', 'W', '-'])
-        
-        # Extraemos números: reconoce decimales (34.603) y enteros (34)
-        nums = re.findall(r"\d+\.\d+|\d+", v)
-        if not nums: return 0.0
-        
-        # Si el primer número ya es decimal (tiene punto), lo usamos directo
-        if "." in nums[0]:
-            res = abs(float(nums[0]))
-        else:
-            # Lógica DMS Patricia: Grados + (Minutos / 60)
-            deg = float(nums[0])
-            min_val = float(nums[1]) if len(nums) > 1 else 0.0
-            res = deg + (min_val / 60.0)
-            
-        return -res if negativo else res
-    except: 
-        return 0.0
-        
-def limpiar_hora(val):
-    if val is None: return 12.0
-    try:
-        if isinstance(val, (int, float)): return float(val)
-        partes = str(val).strip().split(':')
-        h = float(partes[0]) if len(partes) > 0 else 12.0
-        m = float(partes[1]) if len(partes) > 1 else 0.0
-        s = float(partes[2]) if len(partes) > 2 else 0.0
-        return h + m / 60.0 + s / 3600.0
-    except: return 12.0
+        if pd.isna(val) or val == "": return 0.0
+        if hasattr(val, 'hour') and hasattr(val, 'minute'): return val.hour + val.minute/60.0 + val.second/3600.0
+        val_str = str(val).strip()
+        if ':' in val_str:
+            p = val_str.split(':')
+            return float(p[0]) + (float(p[1])/60.0 if len(p)>1 else 0.0) + (float(p[2])/3600.0 if len(p)>2 else 0.0)
+        return float(val_str.replace(',', '.'))
+    except: return 0.0
 
-def limpiar_fecha(val):
-    try: return pd.to_datetime(val, dayfirst=True)
-    except:
-        try: return pd.to_datetime(val)
-        except: return None
+def limpiar_coordenada_dms(valor):
+    try:
+        if isinstance(valor, (float, int)): return float(valor)
+        v = str(valor).upper().strip()
+        negativo = 'S' in v or 'W' in v
+        numeros = re.findall(r"\d+", v)
+        deg = float(numeros[0]) if len(numeros) > 0 else 0
+        min_val = float(numeros[1]) if len(numeros) > 1 else 0
+        decimal = deg + (min_val / 60.0)
+        return -decimal if negativo else decimal
+    except: return 0.0
+
+def parsear_fecha_excel(valor):
+    try: return pd.to_datetime(valor)
+    except: return datetime.now()
 
 def diferencia_angular(a, b):
     """
@@ -157,7 +137,6 @@ def diferencia_angular(a, b):
     """
     d = abs(a - b) % 360
     return d if d <= 180 else 360 - d
-
 
 # ==============================================================================
 # CÁLCULOS ASTROLÓGICOS CENTRALES (LÓGICA MATEMÁTICA PURA)
