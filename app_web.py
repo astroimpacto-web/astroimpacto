@@ -214,19 +214,31 @@ def normalizar_columnas(df):
 def cargar_bases_web():
     try:
         url_secreta = st.secrets["connections"]["gsheets"]["spreadsheet"]
-        sheet_id = url_secreta.split("/d/")[1].split("/")[0]
+        sheet_id = url_secreta.split("/d/")[1].split("/")[0] if "/d/" in url_secreta else url_secreta
+        
+        # Leemos AMBAS pestañas (Consultantes y Programados)
         u_cli = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Consultantes"
+        u_prog = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Informes_Programados"
+        
         df_c = pd.read_csv(u_cli).dropna(how="all")
+        df_p = pd.read_csv(u_prog).dropna(how="all")
         
         # Aplicamos el mapeo corregido para proteger la Hora_UT
         df_c = normalizar_columnas(df_c)
         
         if 'id_consultante' in df_c.columns:
             df_c['id_consultante'] = df_c['id_consultante'].astype(str).str.replace('.0', '', regex=False).strip()
-        return df_c
+            
+        if 'id_consultante' in df_p.columns:
+            df_p['id_consultante'] = df_p['id_consultante'].astype(str).str.replace('.0', '', regex=False).strip()
+            
+        return df_c, df_p
     except Exception as e:
         st.sidebar.error(f"Error cargando datos: {e}")
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
+
+# Llamada global obligatoria para evitar el NameError
+df_cli, df_prog = cargar_bases_web()
 # ==============================================================================
 # 5. NAVEGACIÓN Y PANEL DE AUDITORÍA TÉCNICA
 # ==============================================================================
