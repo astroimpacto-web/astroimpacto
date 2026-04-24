@@ -115,16 +115,34 @@ def limpiar_hora_precisa(val):
     except: return 0.0
 
 def limpiar_coordenada_dms(valor):
+def limpiar_coordenada_dms(valor):
+    """
+    CORRECCIÓN CRÍTICA: Protege los decimales que vienen de Google Sheets
+    para que la carta no se mueva geográficamente y coincida con Meridian.
+    """
+    if valor is None or str(valor).strip() == "": return 0.0
+    if isinstance(valor, (float, int)): return float(valor)
+    
     try:
-        if isinstance(valor, (float, int)): return float(valor)
         v = str(valor).upper().strip()
-        negativo = 'S' in v or 'W' in v
-        numeros = re.findall(r"\d+", v)
-        deg = float(numeros[0]) if len(numeros) > 0 else 0
-        min_val = float(numeros[1]) if len(numeros) > 1 else 0
-        decimal = deg + (min_val / 60.0)
-        return -decimal if negativo else decimal
-    except: return 0.0
+        negativo = any(h in v for h in ['S', 'W', '-'])
+        
+        # El regex ahora respeta el punto decimal (ej: 34.603 no se rompe)
+        nums = re.findall(r"[-+]?\d*\.\d+|\d+", v)
+        if not nums: return 0.0
+        
+        # Si el número tiene punto decimal, lo tomamos directo
+        if "." in nums[0]:
+            res = abs(float(nums[0]))
+        else:
+            # Si no tiene punto, aplicamos tu lógica de Grados y Minutos
+            deg = float(nums[0])
+            min_val = float(nums[1]) if len(nums) > 1 else 0.0
+            res = deg + (min_val / 60.0)
+            
+        return -res if negativo else res
+    except: 
+        return 0.0
 
 def parsear_fecha_excel(valor):
     try: return pd.to_datetime(valor)
