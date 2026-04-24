@@ -154,8 +154,6 @@ st.sidebar.markdown("""
 # ==============================================================================
 # 3. GESTIÓN DEL ESTADO DE SESIÓN (PERSISTENCIA DE DATOS)
 # ==============================================================================
-# Se definen explícitamente todas las variables necesarias para que no se pierdan 
-# al recargar la página.
 if 'textos_generados' not in st.session_state:
     st.session_state.textos_generados = False
 
@@ -189,8 +187,6 @@ def normalizar_columnas(df):
     Mapea las columnas del Drive a nombres internos, 
     asegurando que Hora_UT nunca sea confundida con la hora local.
     """
-    # 1. Limpieza inicial: quitamos espacios y carácteres especiales como ":"
-    # Esto transforma "Hora:UT" en "Hora_UT" automáticamente.
     df.columns = [c.replace(':', '_').replace(' ', '_').strip() for c in df.columns]
     
     mapa_columnas = {
@@ -216,28 +212,24 @@ def cargar_bases_web():
         url_secreta = st.secrets["connections"]["gsheets"]["spreadsheet"]
         sheet_id = url_secreta.split("/d/")[1].split("/")[0] if "/d/" in url_secreta else url_secreta
         
-        # Leemos AMBAS pestañas (Consultantes y Programados)
         u_cli = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Consultantes"
         u_prog = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Informes_Programados"
         
         df_c = pd.read_csv(u_cli).dropna(how="all")
         df_p = pd.read_csv(u_prog).dropna(how="all")
         
-        # Aplicamos el mapeo corregido para proteger la Hora_UT
         df_c = normalizar_columnas(df_c)
         
         if 'id_consultante' in df_c.columns:
-            df_c['id_consultante'] = df_c['id_consultante'].astype(str).str.replace('.0', '', regex=False).strip()
-            
+            df_c['id_consultante'] = df_c['id_consultante'].astype(str).str.replace('.0', '', regex=False).str.strip()
         if 'id_consultante' in df_p.columns:
-            df_p['id_consultante'] = df_p['id_consultante'].astype(str).str.replace('.0', '', regex=False).strip()
+            df_p['id_consultante'] = df_p['id_consultante'].astype(str).str.replace('.0', '', regex=False).str.strip()
             
         return df_c, df_p
     except Exception as e:
         st.sidebar.error(f"Error cargando datos: {e}")
         return pd.DataFrame(), pd.DataFrame()
 
-# Llamada global obligatoria para evitar el NameError
 df_cli, df_prog = cargar_bases_web()
 
 # ==============================================================================
@@ -245,7 +237,6 @@ df_cli, df_prog = cargar_bases_web()
 # ==============================================================================
 st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px;'>NAVEGACIÓN</p>", unsafe_allow_html=True)
 
-# Radio button explícito
 modo_app = st.sidebar.radio(
     label="Menú Principal",
     options=["⚙️ Taller de Informes", "📅 Programar Cliente"],
@@ -254,7 +245,6 @@ modo_app = st.sidebar.radio(
 
 st.sidebar.markdown("<hr style='margin-top: 0.5rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
 
-# Visor técnico expandido
 if st.session_state.textos_generados == True:
     st.sidebar.markdown("### 🔍 Datos Técnicos Exactos")
     st.sidebar.caption("Cálculos matemáticos detallados usados para la interpretación:")
@@ -301,7 +291,6 @@ elif modo_app == "⚙️ Taller de Informes":
         st.markdown("## ⚙️ Taller de Informes")
         st.markdown("<p style='color: #B48E92; font-weight: 500; margin-bottom: 2rem;'>Genera interpretaciones personalizadas basadas en efemérides exactas y tu propio estilo.</p>", unsafe_allow_html=True)
 
-    # Filtrado explícito de informes PENDIENTES
     pendientes = pd.DataFrame()
     if not df_prog.empty:
         if 'Estado' in df_prog.columns:
@@ -329,8 +318,6 @@ elif modo_app == "⚙️ Taller de Informes":
                 else:
                     nombre_cli = f"ID: {id_c}"
                 
-                # --- DETECCIÓN RESILIENTE DEL TIPO DE INFORME (EXTENDIDA) ---
-                # Aquí evitamos el resumen automático que rompía el código anterior.
                 id_tipo_raw = str(row.get('Id_Informe', '1'))
                 id_tipo_lower = id_tipo_raw.lower().strip()
                 id_tipo_clean = id_tipo_lower.replace('.0', '')
@@ -355,7 +342,6 @@ elif modo_app == "⚙️ Taller de Informes":
                 label_visibility="collapsed"
             )
             
-            # Extracción explícita de variables
             partes_seleccion = sel_p.split("Fila: ")
             idx_p = int(partes_seleccion[1].replace(")", "").strip())
             
@@ -363,16 +349,13 @@ elif modo_app == "⚙️ Taller de Informes":
             id_sel = str(row_p['id_consultante'])
             cli_obj = df_cli[df_cli['id_consultante'] == id_sel].iloc[0]
             
-            # Bandera clara para mostrar el buscador de revolución solar
             es_revolucion_final = False
-            if "Revolucion" in sel_p:
-                es_revolucion_final = True
-            elif "Solar" in sel_p:
+            if "Revolucion" in sel_p or "Solar" in sel_p:
                 es_revolucion_final = True
 
-# --- PANEL DE DIAGNÓSTICO DE DATOS (VALORES REALES) ---
-
-# --- PANEL DE DIAGNÓSTICO DE DATOS (VALORES REALES) ---
+            # ==============================================================================
+            # 🟢 PANEL DE DIAGNÓSTICO INLINE
+            # ==============================================================================
             st.sidebar.markdown("<p style='font-size:0.75rem; font-weight:700; margin-top:10px;'>📊 VISTA PREVIA DE DATOS CRUDA</p>", unsafe_allow_html=True)
             
             # Captura con prioridad absoluta a lo que diga UT gracias al mapeo
@@ -381,10 +364,18 @@ elif modo_app == "⚙️ Taller de Informes":
             lat_raw = cli_obj.get('Latitud', '0.0')
             lon_raw = cli_obj.get('Longitud', '0.0')
             
-            # Procesamiento técnico para ver qué número usará el motor SwissEph
-            lat_dec = motor_web.limpiar_coordenada_dms(lat_raw)
-            lon_dec = motor_web.limpiar_coordenada_dms(lon_raw)
-            h_dec = motor_web.limpiar_hora_precisa(h_final)
+            # Protección contra versiones de la función de limpieza
+            if hasattr(motor_web, 'limpiar_coordenada'):
+                lat_dec = motor_web.limpiar_coordenada(lat_raw)
+                lon_dec = motor_web.limpiar_coordenada(lon_raw)
+            else:
+                lat_dec = motor_web.limpiar_coordenada_dms(lat_raw)
+                lon_dec = motor_web.limpiar_coordenada_dms(lon_raw)
+                
+            if hasattr(motor_web, 'limpiar_hora'):
+                h_dec = motor_web.limpiar_hora(h_final)
+            else:
+                h_dec = motor_web.limpiar_hora_precisa(h_final)
             
             diag_html = f"""
             <div class='diag-box'>
@@ -401,7 +392,8 @@ elif modo_app == "⚙️ Taller de Informes":
                 st.sidebar.warning("⚠️ La hora no se reconoce. Revisa el formato en el Drive.")
             elif h_dec < 10.0 and "10:" in str(h_final):
                 st.sidebar.error("⚠️ Error de lectura crítico: Se detectó hora local en lugar de UT.")
-            # --- BUSCADOR DE COORDENADAS PARA REVOLUCIÓN SOLAR ---
+            # ==============================================================================
+
             lat_rs = None
             lon_rs = None
             lug_final = ""
@@ -437,7 +429,6 @@ elif modo_app == "⚙️ Taller de Informes":
                     lug_final = st.session_state.lugar_rs_confirmado
                 else:
                     lug_final = lug_rs_input
-            # --------------------------------------------------------------------------------
 
             st.sidebar.markdown("<br>", unsafe_allow_html=True)
             
@@ -454,6 +445,10 @@ elif modo_app == "⚙️ Taller de Informes":
                 payload_motor["lat"] = cli_obj.get("Latitud")
                 payload_motor["Longitud"] = cli_obj.get("Longitud")
                 payload_motor["lon"] = cli_obj.get("Longitud")
+                
+                # Inyectar las variables UT para asegurar la matemática
+                payload_motor["Fecha_UT"] = cli_obj.get("Fecha_UT")
+                payload_motor["Hora_UT"] = cli_obj.get("Hora_UT")
 
                 with st.spinner("Calculando efemérides y redactando informe integral..."):
                     try:
