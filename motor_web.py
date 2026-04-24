@@ -68,7 +68,6 @@ MESES_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
 # ==============================================================================
 # FUNCIONES DE FORMATEO Y CONVERSIÓN TÉCNICA (BLOQUE DE UTILIDADES)
 # ==============================================================================
-
 def obtener_signo(lon):
     """
     Determina el nombre del signo zodiacal basándose en la longitud eclíptica.
