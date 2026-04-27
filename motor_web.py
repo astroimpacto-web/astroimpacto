@@ -341,26 +341,48 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
         while len(partes) < 5:
             partes.append("")
 
-        return {
-            "nombre_cliente":                  nombre,
-            "titulo_informe":                  "Análisis de Carta Natal",
-            "auditoria_tecnica":               f"Sol {deg_to_dms_sign(planetas['Sol'])} | Luna {deg_to_dms_sign(planetas['Luna'])} | Asc {deg_to_dms_sign(asc)}",
-            "aspectos_clave":                  ["Misión Vital", "Raíz Emocional", "Camino Vital"],
-            "interpretacion_sol_signo":        partes[1] if len(partes) > 1 else "",
-            "interpretacion_luna_signo":       partes[2] if len(partes) > 2 else "",
-            "interpretacion_asc_signo":        partes[3] if len(partes) > 3 else "",
-            "interpretacion_personalidad_global": partes[4] if len(partes) > 4 else "",
-            "gigantes_del_cielo":              [],
-            "foda": {
-                "fortalezas":   ["Resiliencia innata", "Capacidad de análisis profundo"],
-                "oportunidades":["Crecimiento consciente", "Nuevos horizontes"],
-                "debilidades":  ["Duda estructural", "Nivel de autoexigencia"],
-                "amenazas":     ["Miedo al cambio", "Parálisis por exceso de análisis"]
+          return {
+            "nombre_cliente": nombre, 
+            "titulo_informe": f"Revolución Solar {anio_actual}", 
+            "anio_actual": anio_actual, 
+            "auditoria_tecnica": auditoria,
+            "perspectivas": {
+                "transformacion": partes[0], 
+                "oportunidades": partes[1], 
+                "cambio": partes[2], 
+                "relaciones": partes[3]
             },
-        }, "informe_astroimpacto.html"
+            "intro_texto": partes[4], 
+            "carta_natal_resumen": partes[5], 
+            "transitos_personales": partes[6], 
+            "progresiones_secundarias": partes[7],
+            "como_actuar_progresiones": procesar_lista(partes[8]), 
+            "revolucion_solar_general_1": partes[9], 
+            "revo_propone": procesar_lista(partes[10]),
+            
+            # --- ASIGNACIÓN EXACTA AL ORDEN DEL PROMPT ---
+            "situacion_laboral_economica": partes[11],                   # Bloque 12 (Laboral)
+            "logro_objetivos_profesionales": procesar_lista(partes[12]), # Bloque 13 (Obj. Profesionales)
+            "plan_accion_objetivos": procesar_lista(partes[13]),         # Bloque 14 (Plan de Acción)
+            "situacion_emocional": partes[14],                           # Bloque 15 (Vida Afectiva)
+            # -----------------------------------------------------------
+            
+            "panorama_trimestral": [
+                {"titulo": "Primer Trimestre",   "texto": "Inicio del ciclo con foco en la energía del Ascendente Anual."},
+                {"titulo": "Segundo Trimestre",  "texto": "Desarrollo emocional basado en las necesidades de la Luna de Revolución."},
+                {"titulo": "Tercer Trimestre",   "texto": "Materialización de objetivos y maduración de los tránsitos lentos."},
+                {"titulo": "Cuarto Trimestre",   "texto": "Integración final de aprendizajes antes del próximo retorno solar."},
+            ],
+            # Fallbacks de diseño para garantizar la visualización perfecta en PDF
+            "oportunidades_profesionales": ["Consolidación de proyectos clave.", "Nuevas alianzas estratégicas."],
+            "como_enfrentar_profesional": ["Con planificación detallada.", "Evitando la dispersión energética."],
+            "oportunidades_relaciones": ["Vínculos más auténticos y honestos.", "Poner límites sanos y constructivos."],
+            "plan_accion_preguntas": ["¿Qué quiero soltar en este nuevo ciclo?", "¿Cómo voy a nutrir mi propósito vital hoy?"]
+        }, "informe_astroimpacto_rs.html"
+    
     except Exception as e:
-        return None, f"Error crítico en el cálculo de la Carta Natal: {e}"
-
+        import traceback
+        return None, f"Error técnico grave en el procesamiento de la RS: {str(e)}\n{traceback.format_exc()}"
 
 # ==============================================================================
 # PROCESO 3: TRÁNSITOS ANUALES (BITÁCORA ESTELAR COMPLETA)
