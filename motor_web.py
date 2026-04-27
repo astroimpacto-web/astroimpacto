@@ -273,7 +273,7 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
         # Sincronización exacta con la interfaz de usuario y la plantilla de reporte.
         # Bloque 14 (Índice 13) es el Plan de Acción.
         # Bloque 15 (Índice 14) es la Vida Afectiva/Situación Emocional.
- return {
+        return {
             "nombre_cliente": nombre, 
             "titulo_informe": f"Revolución Solar {anio_actual}", 
             "anio_actual": anio_actual, 
@@ -313,8 +313,8 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
         }, "informe_astroimpacto_rs.html"
 
     except Exception as e:
-        import traceback
-        return None, f"Error técnico grave en el procesamiento de la RS: {str(e)}\n{traceback.format_exc()}"
+           import traceback
+           return None, f"Error técnico grave en el procesamiento de la RS: {str(e)}\n{traceback.format_exc()}"
 
 
 # ==============================================================================
@@ -341,7 +341,7 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
         while len(partes) < 5:
             partes.append("")
 
-          return {
+        return {
             "nombre_cliente": nombre, 
             "titulo_informe": f"Revolución Solar {anio_actual}", 
             "anio_actual": anio_actual, 
@@ -381,8 +381,8 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
         }, "informe_astroimpacto_rs.html"
     
     except Exception as e:
-        import traceback
-        return None, f"Error técnico grave en el procesamiento de la RS: {str(e)}\n{traceback.format_exc()}"
+            import traceback
+            return None, f"Error técnico grave en el procesamiento de la RS: {str(e)}\n{traceback.format_exc()}"
 
 # ==============================================================================
 # PROCESO 3: TRÁNSITOS ANUALES (BITÁCORA ESTELAR COMPLETA)
