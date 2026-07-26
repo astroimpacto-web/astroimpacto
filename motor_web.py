@@ -130,38 +130,50 @@ def diferencia_angular(a, b):
 # ==============================================================================
 # CÁLCULOS ASTROLÓGICOS CENTRALES
 # ==============================================================================
-def obtener_datos_astrologicos(jd, lat, lon):
-    try:
-        planetas = {n: swe.calc_ut(float(jd), i, FLAGS)[0][0] for n, i in PLANETAS_NATALES}
-        # SISTEMA TOPOCÉNTRICO (b'T') ASEGURADO
-        casas, ascmc = swe.houses(float(jd), float(lat), float(lon), b'T')
-        return planetas, casas, ascmc
-    except Exception as e:
-        raise ValueError(f"Fallo en motor Topocéntrico: {e}")
+# ... código anterior ...
 
+# --- 2. MOTOR DE CÁLCULO (BLINDAJE CONTRA ERROR SWISSEPH.HOUSES) ---
+def obtener_datos_astrologicos(jd, lat, lon):
+    """
+    Realiza la consulta de efemérides. Forzamos float para evitar el error 
+    técnico del motor de casas en el servidor. Extrae los valores puros de las tuplas.
+    """
+    try:
+        planetas = {}
+        for name, id_p in PLANETAS_NATALES:
+            # swe.calc_ut devuelve una tupla, [0][0] extrae la longitud eclíptica (float)
+            planetas[name] = float(swe.calc_ut(float(jd), id_p, FLAGS)[0][0])
+        
+        # El sistema Placidus (b'P') requiere lat/lon como floats puros
+        # devuelve (casas_tupla, ascmc_tupla)
+        casas, ascmc = swe.houses(float(jd), float(lat), float(lon), b'P')
+        
+        # ascmc[0] es el Ascendente, ascmc[1] es el Medio Cielo
+        # Forzamos a float para evitar que viajen como tuplas y rompan la función obtener_signo
+        return planetas, float(ascmc[0]), float(ascmc[1])
+    except Exception as e:
+        raise ValueError(f"Error en motor de casas: {e}")
+
+# --- 3. POSICIONES BASE (RETORNO DE 7 VARIABLES - IGUAL A TU LOCAL) ---
 def calcular_posiciones_base(cliente):
     """
-    Lee datos priorizando las columnas de Hora Universal (UT) para evitar desfases.
-    Aplica el calendario Gregoriano.
+    Genera el set de 7 valores fundamentales (planetas, asc, mc, f, h, lat, lon).
+    IMPORTANTE: Si los cálculos dan mal, asegúrate de que 'h' sea Hora UT.
     """
-    # 1. Búsqueda de Fecha (Priorizando UT)
-    f_val = cliente.get('Fecha_UT', cliente.get('Fecha:UT', cliente.get('Fecha')))
-    f = parsear_fecha_excel(f_val)
+    f = limpiar_fecha(cliente.get('Fecha'))
     if f is None: raise ValueError("Fecha no válida")
     
-    # 2. Búsqueda de Hora (Priorizando UT)
-    h_val = cliente.get('Hora_UT', cliente.get('Hora:UT', cliente.get('Hora', '12:00:00')))
-    h = limpiar_hora_precisa(h_val)
+    h = limpiar_hora(cliente.get('Hora', '12:00:00'))
+    lat = limpiar_coordenada(cliente.get('Latitud', 0))
+    lon = limpiar_coordenada(cliente.get('Longitud', 0))
     
-    lat = limpiar_coordenada_dms(cliente.get('Latitud', 0))
-    lon = limpiar_coordenada_dms(cliente.get('Longitud', 0))
-    
-    # JD con calendario Gregoriano estricto (igual que en local)
+    # Usamos GREG_CAL para máxima precisión histórica
     jd = swe.julday(f.year, f.month, f.day, h, swe.GREG_CAL)
-    planetas, casas, ascmc = obtener_datos_astrologicos(jd, lat, lon)
+    planetas, asc, mc = obtener_datos_astrologicos(jd, lat, lon)
     
-    return planetas, casas, ascmc, f, h, lat, lon
+    return planetas, asc, mc, f, h, lat, lon
 
+# ... código siguiente ...
     
 # ==============================================================================
 # PROCESO 1: REVOLUCIÓN SOLAR (ESTRUCTURA DE 15 BLOQUES SIN RECORTES)
