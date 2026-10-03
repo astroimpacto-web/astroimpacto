@@ -7,6 +7,8 @@ import re
 from jinja2 import Environment, FileSystemLoader
 import motor_web
 from geopy.geocoders import ArcGIS
+import gspread
+from google.oauth2.service_account import Credentials
 
 # ==============================================================================
 # 1. FUNCIONES DE APOYO Y SEGURIDAD TÉCNICA (IDENTIDAD VISUAL)
