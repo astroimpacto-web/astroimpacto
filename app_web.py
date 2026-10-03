@@ -459,6 +459,10 @@ elif modo_app == "⚙️ Taller de Informes":
                 # Inyectar las variables UT para asegurar la matemática
                 payload_motor["Fecha_UT"] = cli_obj.get("Fecha_UT")
                 payload_motor["Hora_UT"] = cli_obj.get("Hora_UT")
+                # Datos que usa el informe Natal (portada y concordancia de género en los textos)
+                payload_motor["Ciudad"] = cli_obj.get("Ciudad")
+                payload_motor["Pais"] = cli_obj.get("Pais")
+                payload_motor["Genero"] = cli_obj.get("Genero")
 
                 with st.spinner("Calculando efemérides y redactando informe integral..."):
                     try:
@@ -481,6 +485,7 @@ elif modo_app == "⚙️ Taller de Informes":
                             st.session_state.datos_diccionario = datos_resultantes
                             st.session_state.plantilla_usar = plantilla_resultante
                             st.session_state.textos_generados = True
+                            st.session_state.gen_id = st.session_state.get('gen_id', 0) + 1
                             st.session_state.idx_prog_actual = idx_p
                             st.rerun()
                         else:
@@ -599,42 +604,66 @@ elif modo_app == "⚙️ Taller de Informes":
 
         # --- SECCIONES CARTA NATAL ---
         else:
-            with st.expander("1. Tríada Sagrada de Identidad (Sol, Luna y AC)", expanded=True):
-                d_actual['interpretacion_sol_signo'] = st.text_area("☉ El Propósito Solar y la Esencia Vital", d_actual.get('interpretacion_sol_signo',''), height=150)
-                d_actual['interpretacion_luna_signo'] = st.text_area("☽ El Refugio Emocional y el Mecanismo de Seguridad", d_actual.get('interpretacion_luna_signo',''), height=150)
-                d_actual['interpretacion_asc_signo'] = st.text_area("AC El Camino de Integración del Ascendente", d_actual.get('interpretacion_asc_signo',''), height=150)
-            
-            with st.expander("2. Análisis de los Gigantes del Cielo", expanded=False):
-                if 'gigantes_del_cielo' in d_actual:
-                    for idx_g, gigante in enumerate(d_actual.get('gigantes_del_cielo', [])):
-                        nom_g = gigante.get('nombre', 'Cuerpo')
-                        sig_g = gigante.get('signo', '')
-                        txt_g = gigante.get('texto', '')
-                        gigante['texto'] = st.text_area(f"{nom_g} en {sig_g}", txt_g, key=f"natal_g_{idx_g}", height=100)
+            # Las claves incluyen el número de informe generado: así los textos de un consultante
+            # nunca se arrastran al siguiente.
+            def _k(nombre):
+                return f"{nombre}_{st.session_state.get('gen_id', 0)}"
 
-            with st.expander("3. Síntesis Evolutiva Global y FODA Personal", expanded=True):
-                d_actual['interpretacion_personalidad_global'] = st.text_area("Relato Final de Integración de Personalidad", d_actual.get('interpretacion_personalidad_global',''), height=350)
+            def _lista_editable(etiqueta, lista, clave):
+                previo = "\n".join(lista or [])
+                editado = st.text_area(f"{etiqueta} (una por línea)", previo, key=_k(clave), height=130)
+                return [x.strip() for x in editado.split("\n") if x.strip()]
+
+            d_actual.setdefault('sol', {})
+            d_actual.setdefault('luna', {})
+            d_actual.setdefault('foda', {})
+            d_actual.setdefault('datos_contacto', {})
+
+            with st.expander("1. Introducción y frases destacadas", expanded=False):
+                d_actual['texto_introductorio'] = st.text_area("Texto de bienvenida", d_actual.get('texto_introductorio', ''), height=120, key=_k("natal_intro"))
+                d_actual['frase_destacada_sol'] = st.text_input("Frase destacada del Sol", d_actual.get('frase_destacada_sol', ''), key=_k("natal_fr_sol"))
+                d_actual['frase_destacada_luna'] = st.text_input("Frase destacada de la Luna", d_actual.get('frase_destacada_luna', ''), key=_k("natal_fr_luna"))
+                d_actual['frase_destacada_asc'] = st.text_input("Frase destacada del Ascendente", d_actual.get('frase_destacada_asc', ''), key=_k("natal_fr_asc"))
+                d_actual['frase_destacada_global'] = st.text_input("Frase de la interpretación global", d_actual.get('frase_destacada_global', ''), key=_k("natal_fr_glob"))
+
+            with st.expander("2. Tríada Sagrada de Identidad (Sol, Luna y AC)", expanded=True):
+                d_actual['interpretacion_sol_signo'] = st.text_area("☉ El Propósito Solar y la Esencia Vital", d_actual.get('interpretacion_sol_signo', ''), height=180, key=_k("natal_sol"))
+                d_actual['interpretacion_luna_signo'] = st.text_area("☽ El Refugio Emocional y el Mecanismo de Seguridad", d_actual.get('interpretacion_luna_signo', ''), height=180, key=_k("natal_luna"))
+                d_actual['luna']['mecanismo'] = st.text_input("Luna: mecanismo de defensa", d_actual['luna'].get('mecanismo', ''), key=_k("natal_l_mec"))
+                d_actual['luna']['talento'] = st.text_input("Luna: talento emocional", d_actual['luna'].get('talento', ''), key=_k("natal_l_tal"))
+                d_actual['luna']['necesidad'] = st.text_input("Luna: necesidad básica", d_actual['luna'].get('necesidad', ''), key=_k("natal_l_nec"))
+                d_actual['interpretacion_asc_signo'] = st.text_area("AC El Camino de Integración del Ascendente", d_actual.get('interpretacion_asc_signo', ''), height=180, key=_k("natal_asc"))
+
+            with st.expander("3. Modos y Balance de Elementos", expanded=False):
+                el = d_actual.get('elementos', {})
+                st.caption(f"Fuego {el.get('fuego', 0)}% · Tierra {el.get('tierra', 0)}% · Aire {el.get('aire', 0)}% · Agua {el.get('agua', 0)}%")
+                d_actual['interpretacion_modos'] = st.text_area("Ritmo vital (Modos)", d_actual.get('interpretacion_modos', ''), height=150, key=_k("natal_modos"))
+                d_actual['interpretacion_balance_elementos'] = st.text_area("Balance de Elementos", d_actual.get('interpretacion_balance_elementos', ''), height=150, key=_k("natal_elem"))
+
+            with st.expander("4. Análisis de los Gigantes del Cielo", expanded=False):
+                for idx_g, gigante in enumerate(d_actual.get('gigantes_del_cielo', [])):
+                    gigante['texto'] = st.text_area(f"{gigante.get('nombre', 'Cuerpo')} en {gigante.get('signo', '')} (Casa {gigante.get('casa', '')})", gigante.get('texto', ''), key=_k(f"natal_g_{idx_g}"), height=120)
+
+            with st.expander("5. Aspectos Planetarios Clave", expanded=False):
+                for idx_a, asp in enumerate(d_actual.get('aspectos_interpretados', [])):
+                    asp['texto'] = st.text_area(f"{asp.get('titulo', 'Aspecto')} ({asp.get('subtitulo', '')})", asp.get('texto', ''), key=_k(f"natal_a_{idx_a}"), height=120)
+
+            with st.expander("6. Síntesis Evolutiva Global y FODA Personal", expanded=True):
+                d_actual['interpretacion_personalidad_global'] = st.text_area("Relato Final de Integración de Personalidad", d_actual.get('interpretacion_personalidad_global', ''), height=350, key=_k("natal_global"))
                 st.markdown("**Matriz de Potencial (FODA):**")
-                
                 col_f1, col_f2 = st.columns(2)
-                
                 with col_f1:
-                    fort_previas = "\n".join(d_actual['foda'].get('fortalezas', []))
-                    fort_editadas = st.text_area("Fortalezas (Una por línea)", fort_previas)
-                    lista_f = []
-                    for x in fort_editadas.split("\n"):
-                        if x.strip() != "":
-                            lista_f.append(x.strip())
-                    d_actual['foda']['fortalezas'] = lista_f
-                    
+                    d_actual['foda']['fortalezas'] = _lista_editable("Fortalezas", d_actual['foda'].get('fortalezas', []), "natal_foda_f")
+                    d_actual['foda']['oportunidades'] = _lista_editable("Oportunidades", d_actual['foda'].get('oportunidades', []), "natal_foda_o")
                 with col_f2:
-                    deb_previas = "\n".join(d_actual['foda'].get('debilidades', []))
-                    deb_editadas = st.text_area("Debilidades (Una por línea)", deb_previas)
-                    lista_d = []
-                    for x in deb_editadas.split("\n"):
-                        if x.strip() != "":
-                            lista_d.append(x.strip())
-                    d_actual['foda']['debilidades'] = lista_d
+                    d_actual['foda']['debilidades'] = _lista_editable("Debilidades", d_actual['foda'].get('debilidades', []), "natal_foda_d")
+                    d_actual['foda']['amenazas'] = _lista_editable("Amenazas", d_actual['foda'].get('amenazas', []), "natal_foda_a")
+
+            with st.expander("7. Datos de contacto (última página)", expanded=False):
+                d_actual['datos_contacto']['ig'] = st.text_input("Instagram", d_actual['datos_contacto'].get('ig', ''), key=_k("natal_ig"))
+                d_actual['datos_contacto']['mail'] = st.text_input("Correo", d_actual['datos_contacto'].get('mail', ''), key=_k("natal_mail"))
+                if not d_actual['datos_contacto'].get('ig') or not d_actual['datos_contacto'].get('mail'):
+                    st.warning("Faltan datos de contacto: aparecerán vacíos en la última página. Para fijarlos, completa DATOS_CONTACTO en motor_web.py.")
 
         # ==============================================================================
         # 9. PANEL DE ACCIONES FINALES (DESCARGA Y VISTA PREVIA)
@@ -652,13 +681,13 @@ elif modo_app == "⚙️ Taller de Informes":
             with c_fin1:
                 if st.button("👁️ VER VISTA PREVIA DEL DISEÑO"):
                     try: 
-                        html_render = plantilla_final.render(d_actual)
+                        html_render = plantilla_final.render(motor_web.preparar_para_render(d_actual, tipo_actual))
                         components.html(html_render, height=900, scrolling=True)
                     except Exception as error_render: 
                         st.error(f"Error al renderizar el diseño visual: {error_render}")
 
             with c_fin2:
-                html_para_descargar = plantilla_final.render(d_actual)
+                html_para_descargar = plantilla_final.render(motor_web.preparar_para_render(d_actual, tipo_actual))
                 
                 # Determinamos el sufijo del archivo explícitamente
                 if tipo_actual == "TRANSITOS":

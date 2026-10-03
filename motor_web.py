@@ -426,31 +426,419 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
         return None, f"Error técnico grave en el procesamiento de la RS: {str(e)}\n{traceback.format_exc()}"
 
 # ==============================================================================
-# PROCESO 2: CARTA NATAL (ANÁLISIS PSICOLÓGICO EXTENSO Y PROFUNDO)
+# PROCESO 2: CARTA NATAL COMPLETA (alineada con informe_astroimpacto.html)
 # ==============================================================================
+import base64
+import copy
+import html as _html
+import math
+
+SIGNOS = ["Aries", "Tauro", "Géminis", "Cáncer", "Leo", "Virgo", "Libra", "Escorpio",
+          "Sagitario", "Capricornio", "Acuario", "Piscis"]
+GLIFOS_SIGNOS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"]
+GLIFOS_PLANETAS = {"Sol": "☉", "Luna": "☽", "Mercurio": "☿", "Venus": "♀", "Marte": "♂",
+                   "Júpiter": "♃", "Saturno": "♄", "Urano": "♅", "Neptuno": "♆", "Plutón": "♇",
+                   "Ascendente": "AC", "Medio Cielo": "MC"}
+
+PLANETAS_CARTA = [
+    ("Sol", swe.SUN), ("Luna", swe.MOON), ("Mercurio", swe.MERCURY), ("Venus", swe.VENUS),
+    ("Marte", swe.MARS), ("Júpiter", swe.JUPITER), ("Saturno", swe.SATURN),
+    ("Urano", swe.URANUS), ("Neptuno", swe.NEPTUNE), ("Plutón", swe.PLUTO),
+]
+GIGANTES = ["Júpiter", "Saturno", "Urano", "Neptuno", "Plutón"]
+LUMINARES = {"Sol", "Luna"}
+TRANSPERSONALES = {"Urano", "Neptuno", "Plutón"}
+
+# Peso de cada punto en el balance de elementos y modos (ajustable a tu criterio).
+PESOS_PUNTOS = {"Sol": 4, "Luna": 4, "Ascendente": 4, "Mercurio": 3, "Venus": 3, "Marte": 3,
+                "Medio Cielo": 2, "Júpiter": 2, "Saturno": 2, "Urano": 1, "Neptuno": 1, "Plutón": 1}
+
+ASPECTOS_NATAL = [("Conjunción", 0, 8), ("Sextil", 60, 5), ("Cuadratura", 90, 7),
+                  ("Trígono", 120, 7), ("Oposición", 180, 8)]
+
+# Completa con tus datos reales (aparecen en la última página del informe).
+DATOS_CONTACTO = {"ig": "@tu_instagram", "mail": "tu_correo@ejemplo.com"}
+TEXTO_CONECTADOS = "Sigamos conectados"
+
+ROL_NATAL = ("Eres Patricia Ramirez, astróloga profesional de Astroimpacto. Tono empático, profundo, "
+             "psicológico y cercano. Escribes en español neutro, sin tecnicismos innecesarios.")
+
+
+def casa_de(lon, cuspides):
+    """Número de casa (1-12) en que cae una longitud, según las cúspides."""
+    for i in range(12):
+        ini, fin = cuspides[i], cuspides[(i + 1) % 12]
+        ancho = (fin - ini) % 360
+        if (lon - ini) % 360 < ancho:
+            return i + 1
+    return 12
+
+
+def _grados_min(valor):
+    g = int(valor)
+    m = int(round((valor - g) * 60))
+    if m == 60:
+        g, m = g + 1, 0
+    return f"{g}°{m:02d}'"
+
+
+def calcular_carta_natal(cliente):
+    """Planetas (con casa y retrogradación), cúspides topocéntricas, Asc y MC. Todo en UT."""
+    fecha_ut, hora_ut, origen = momento_ut(cliente)
+    lat = limpiar_coordenada(cliente.get('Latitud', 0))
+    lon = limpiar_coordenada(cliente.get('Longitud', 0))
+    jd = float(swe.julday(fecha_ut.year, fecha_ut.month, fecha_ut.day, hora_ut, swe.GREG_CAL))
+
+    planetas = {}
+    for nombre, id_p in PLANETAS_CARTA:
+        res = swe.calc_ut(jd, id_p, FLAGS)[0]
+        planetas[nombre] = {"lon": float(res[0]), "retro": float(res[3]) < 0}
+
+    cusps, ascmc = swe.houses(jd, float(lat), float(lon), SISTEMA_CASAS)
+    cusps = [float(c) for c in cusps]
+    if len(cusps) == 13:
+        cusps = cusps[1:]
+    if len(cusps) != 12:
+        raise ValueError(f"El motor de casas devolvió {len(cusps)} cúspides (se esperaban 12).")
+    asc, mc = float(ascmc[0]), float(ascmc[1])
+
+    for d in planetas.values():
+        d["signo"] = obtener_signo(d["lon"])
+        d["casa"] = casa_de(d["lon"], cusps)
+    return {"planetas": planetas, "cuspides": cusps, "asc": asc, "mc": mc,
+            "fecha_ut": fecha_ut, "hora_ut": hora_ut, "lat": lat, "lon": lon}
+
+
+def calcular_balance(puntos):
+    """Elementos y modos (en %, enteros que suman 100) ponderados por PESOS_PUNTOS."""
+    elem = {"fuego": 0.0, "tierra": 0.0, "aire": 0.0, "agua": 0.0}
+    claves_e = ["fuego", "tierra", "aire", "agua"]
+    modos = {"Cardinal": 0.0, "Fijo": 0.0, "Mutable": 0.0}
+    claves_m = ["Cardinal", "Fijo", "Mutable"]
+    for nombre, lon in puntos.items():
+        peso = PESOS_PUNTOS.get(nombre, 1)
+        idx = int(lon / 30) % 12
+        elem[claves_e[idx % 4]] += peso
+        modos[claves_m[idx % 3]] += peso
+
+    def a_porcentaje(d):
+        total = sum(d.values())
+        crudo = {k: v * 100.0 / total for k, v in d.items()}
+        base = {k: int(v) for k, v in crudo.items()}
+        faltan = 100 - sum(base.values())
+        for k in sorted(crudo, key=lambda k: crudo[k] - base[k], reverse=True)[:faltan]:
+            base[k] += 1
+        return base
+    return a_porcentaje(elem), a_porcentaje(modos)
+
+
+def calcular_aspectos_natal(puntos, maximo=8):
+    """Aspectos mayores entre planetas, Ascendente y Medio Cielo, ordenados por cercanía relativa.
+    Se omiten los aspectos entre dos planetas transpersonales (son generacionales) y AC-MC."""
+    nombres = list(puntos)
+    encontrados = []
+    for i, a in enumerate(nombres):
+        for b in nombres[i + 1:]:
+            if {a, b} == {"Ascendente", "Medio Cielo"}:
+                continue
+            if a in TRANSPERSONALES and b in TRANSPERSONALES:
+                continue
+            dist = diferencia_angular(puntos[a], puntos[b])
+            for nom, ang, orbe in ASPECTOS_NATAL:
+                limite = orbe if (a in LUMINARES or b in LUMINARES) else orbe - 2
+                desv = abs(dist - ang)
+                if desv <= limite:
+                    encontrados.append({"a": a, "b": b, "aspecto": nom, "angulo": ang,
+                                        "orbe": desv, "rel": desv / limite})
+                    break
+    encontrados.sort(key=lambda x: x["rel"])
+    return encontrados[:maximo]
+
+
+def dibujar_mandala_svg(carta, aspectos):
+    """Rueda natal en SVG (Ascendente a la izquierda). Devuelve texto SVG."""
+    cx = cy = 300
+    asc = carta["asc"]
+    fuente = "'Segoe UI Symbol','Apple Symbols','DejaVu Sans','Noto Sans Symbols',sans-serif"
+    acento, oscuro, gris = "#B48E92", "#967074", "#4A4A4A"
+
+    def pt(lon, r):
+        th = math.radians(180.0 + (lon - asc))
+        return cx + r * math.cos(th), cy - r * math.sin(th)
+
+    s = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="-25 -25 650 650" width="650" height="650">',
+         '<rect x="-25" y="-25" width="650" height="650" fill="#F9F7F2"/>']
+    for r, w in ((290, 1.5), (248, 1), (212, 1), (118, 1)):
+        s.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{acento}" stroke-width="{w}"/>')
+
+    # Signos
+    for i in range(12):
+        x1, y1 = pt(i * 30, 248)
+        x2, y2 = pt(i * 30, 290)
+        s.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{acento}" stroke-width="1"/>')
+        gx, gy = pt(i * 30 + 15, 269)
+        s.append(f'<text x="{gx:.1f}" y="{gy:.1f}" text-anchor="middle" dy=".35em" font-size="22" '
+                 f'font-family="{fuente}" fill="{oscuro}">{GLIFOS_SIGNOS[i]}&#xFE0E;</text>')
+
+    # Casas
+    for i, c in enumerate(carta["cuspides"]):
+        x1, y1 = pt(c, 118)
+        x2, y2 = pt(c, 248)
+        grueso = 2 if i in (0, 3, 6, 9) else 0.8
+        s.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{gris}" '
+                 f'stroke-width="{grueso}" opacity="0.55"/>')
+        sig = carta["cuspides"][(i + 1) % 12]
+        ancho = (sig - c) % 360
+        nx, ny = pt(c + ancho / 2.0, 228)
+        s.append(f'<text x="{nx:.1f}" y="{ny:.1f}" text-anchor="middle" dy=".35em" font-size="11" '
+                 f'font-family="sans-serif" fill="{gris}" opacity="0.7">{i + 1}</text>')
+
+    # Aspectos
+    puntos = {n: d["lon"] for n, d in carta["planetas"].items()}
+    puntos["Ascendente"], puntos["Medio Cielo"] = carta["asc"], carta["mc"]
+    for asp in aspectos:
+        x1, y1 = pt(puntos[asp["a"]], 118)
+        x2, y2 = pt(puntos[asp["b"]], 118)
+        color = {"Conjunción": oscuro, "Sextil": "#6B818C", "Trígono": "#6B818C"}.get(asp["aspecto"], "#B0605F")
+        s.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{color}" '
+                 f'stroke-width="1.3" opacity="0.8"/>')
+
+    # Planetas (separación mínima para que los glifos no se pisen)
+    items = sorted(((n, d["lon"]) for n, d in carta["planetas"].items()), key=lambda t: t[1])
+    disp = [lon for _, lon in items]
+    for _ in range(80):
+        movido = False
+        for i in range(len(items)):
+            j = (i + 1) % len(items)
+            brecha = (disp[j] - disp[i]) % 360
+            if len(items) > 1 and brecha < 9:
+                push = (9 - brecha) / 2.0
+                disp[i] -= push
+                disp[j] += push
+                movido = True
+        if not movido:
+            break
+    for (nombre, lon), dlon in zip(items, disp):
+        x1, y1 = pt(lon, 212)
+        x2, y2 = pt(lon, 204)
+        s.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{gris}" stroke-width="1.2"/>')
+        gx, gy = pt(dlon, 184)
+        s.append(f'<text x="{gx:.1f}" y="{gy:.1f}" text-anchor="middle" dy=".35em" font-size="20" '
+                 f'font-family="{fuente}" fill="{gris}">{GLIFOS_PLANETAS[nombre]}&#xFE0E;</text>')
+        if carta["planetas"][nombre]["retro"]:
+            rx, ry = pt(dlon, 160)
+            s.append(f'<text x="{rx:.1f}" y="{ry:.1f}" text-anchor="middle" dy=".35em" font-size="9" '
+                     f'font-family="sans-serif" fill="{oscuro}">R</text>')
+
+    # Ejes AC / MC
+    for etiqueta, lon in (("AC", carta["asc"]), ("MC", carta["mc"])):
+        x, y = pt(lon, 306)
+        s.append(f'<text x="{x:.1f}" y="{y:.1f}" text-anchor="middle" dy=".35em" font-size="13" '
+                 f'font-family="sans-serif" font-weight="bold" fill="{oscuro}">{etiqueta}</text>')
+    s.append('</svg>')
+    return "".join(s)
+
+
+def svg_a_data_uri(svg):
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode("ascii")
+
+
+def _texto_a_html(texto):
+    """Texto plano (párrafos separados por línea en blanco) -> <p>…</p>. Si ya trae HTML, lo respeta."""
+    if texto is None:
+        return ""
+    texto = str(texto).strip()
+    if "<p" in texto.lower():
+        return texto
+    parrafos = [p.strip() for p in re.split(r"\n\s*\n", texto) if p.strip()]
+    return "".join(f"<p>{_html.escape(p).replace(chr(10), '<br>')}</p>" for p in parrafos)
+
+
+CLAVES_TEXTO_NATAL = ["texto_introductorio", "interpretacion_modos", "interpretacion_balance_elementos",
+                      "interpretacion_sol_signo", "interpretacion_luna_signo", "interpretacion_asc_signo",
+                      "interpretacion_personalidad_global"]
+
+
+def preparar_para_render(datos, tipo="NATAL"):
+    """Copia del diccionario con los textos largos convertidos a párrafos HTML (solo Natal).
+    En el editor los textos se mantienen planos; esta conversión ocurre únicamente al renderizar."""
+    if tipo != "NATAL" or not isinstance(datos, dict):
+        return datos
+    d = copy.deepcopy(datos)
+    for k in CLAVES_TEXTO_NATAL:
+        if k in d:
+            d[k] = _texto_a_html(d[k])
+    for g in d.get("gigantes_del_cielo", []):
+        g["texto"] = _texto_a_html(g.get("texto", ""))
+    for a in d.get("aspectos_interpretados", []):
+        a["texto"] = _texto_a_html(a.get("texto", ""))
+    return d
+
+
+def _llamar_json(prompt, claves, max_tokens, intentos=2):
+    """Pide a la IA un JSON y valida que estén todas las claves. Lanza ValueError si no se logra."""
+    ultimo = None
+    for _ in range(intentos):
+        try:
+            datos = consultor_web.consultar_gpt_json(ROL_NATAL, prompt, max_tokens)
+            faltan = [k for k in claves if k not in datos or datos[k] in (None, "", [], {})]
+            if not faltan:
+                return datos
+            ultimo = f"la IA no entregó: {', '.join(faltan)}"
+        except Exception as e:
+            ultimo = str(e)
+        time.sleep(2)
+    raise ValueError(f"Falló la generación con IA ({ultimo}).")
+
+
+def _lista_texto(valor, n=4):
+    """Normaliza una lista de frases devuelta por la IA."""
+    if isinstance(valor, str):
+        valor = [x for x in re.split(r"\n|&&&", valor)]
+    limpio = [re.sub(r"^[\-\*•\d\.\)\s]+", "", str(x)).strip() for x in (valor or [])]
+    return [x for x in limpio if len(x) > 3][:n]
+
+
 def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
-    """Genera el análisis profundo y profesional de la Carta Natal del consultante."""
+    """Carta natal completa: cálculo real (casas topocéntricas) + textos IA con salida JSON."""
     try:
         nombre = cliente.get('Nombres', 'Consultante')
-        planetas, asc, mc, f_nac, h_nac, lat, lon = calcular_posiciones_base(cliente)
-        rol = "Eres Patricia Ramirez, astróloga profesional de alto nivel. Redacta de forma psicológica y extensa."
-        prompt = (
-            f"Analiza la Carta Natal integral para {nombre}:\n"
-            f"Sol en {obtener_signo(planetas['Sol'])}, Luna en {obtener_signo(planetas['Luna'])}, "
-            f"Ascendente en {obtener_signo(asc)}.\n"
-            f"REGLA: Separa cada sección estrictamente con el símbolo ###:\n"
-            f"1. Interpretación del Sol (Tu Misión Vital Central)\n2. Interpretación de la Luna (Tus Mecanismos Emocionales)\n3. Interpretación del Ascendente (Tu Ruta de Aprendizaje)\n4. Síntesis global de personalidad y potencial evolutivo\n"
-        )
-        resultado = consultor_web.consultar_gpt(rol, prompt, 2500)
-        partes = [p.strip() for p in resultado.split('###')] if resultado else [""] * 5
-        while len(partes) < 5:
-            partes.append("")
+        genero = str(cliente.get('Genero') or cliente.get('genero') or '').strip().lower()
+        es_mujer = genero.startswith('f')
+        es_hombre = genero.startswith('m')
+        concordancia = ("Escribe en femenino (la consultante)." if es_mujer else
+                        "Escribe en masculino (el consultante)." if es_hombre else
+                        "Usa formulaciones neutras que no dependan del género.")
+
+        carta = calcular_carta_natal(cliente)
+        pl = carta["planetas"]
+        puntos = {n: d["lon"] for n, d in pl.items()}
+        puntos["Ascendente"], puntos["Medio Cielo"] = carta["asc"], carta["mc"]
+        elementos, modos = calcular_balance(puntos)
+        aspectos = calcular_aspectos_natal(puntos)
+
+        asc_signo, mc_signo = obtener_signo(carta["asc"]), obtener_signo(carta["mc"])
+        lineas = [f"- {n} en {d['signo']}, casa {d['casa']}" + (" (retrógrado)" if d["retro"] else "")
+                  for n, d in pl.items()]
+        lineas.append(f"- Ascendente en {asc_signo}")
+        lineas.append(f"- Medio Cielo en {mc_signo}")
+        lineas_asp = [f"{i + 1}. {a['a']} {a['aspecto']} {a['b']} (orbe {a['orbe']:.1f}°)"
+                      for i, a in enumerate(aspectos)] or ["(sin aspectos mayores cerrados)"]
+        datos_txt = (f"CONSULTANTE: {nombre}. {concordancia}\n"
+                     f"POSICIONES (casas topocéntricas):\n" + "\n".join(lineas) + "\n"
+                     f"BALANCE ELEMENTOS (%): fuego {elementos['fuego']}, tierra {elementos['tierra']}, "
+                     f"aire {elementos['aire']}, agua {elementos['agua']}\n"
+                     f"BALANCE MODOS (%): cardinal {modos['Cardinal']}, fijo {modos['Fijo']}, mutable {modos['Mutable']}\n")
+        reglas = ("REGLAS: usa SOLO los datos entregados, no inventes posiciones ni aspectos. "
+                  "Texto plano (sin HTML ni markdown); separa los párrafos con una línea en blanco. "
+                  "No menciones porcentajes ni números de puntos. Responde únicamente con un objeto JSON.")
+
+        prompt_a = (datos_txt + "\n" + reglas + "\n\n"
+                    "Devuelve un JSON con estas claves exactas:\n"
+                    '"texto_introductorio": bienvenida cálida personalizada (1 párrafo),\n'
+                    '"frase_destacada_sol", "frase_destacada_luna", "frase_destacada_asc", "frase_destacada_global": '
+                    "frases inspiradoras cortas (máx. 18 palabras, sin comillas) sobre Sol, Luna, Ascendente y el conjunto,\n"
+                    '"interpretacion_sol_signo": Sol en su signo y casa, identidad y brillo (2 párrafos),\n'
+                    '"interpretacion_luna_signo": Luna en su signo y casa, mundo emocional y refugio (2 párrafos),\n'
+                    '"luna_mecanismo", "luna_talento", "luna_necesidad": una frase corta cada una '
+                    "(mecanismo de defensa, talento emocional, necesidad básica de la Luna),\n"
+                    '"interpretacion_asc_signo": Ascendente en su signo, aprendizaje y cómo lo ven los demás (2 párrafos),\n'
+                    '"interpretacion_modos": ritmo vital según el modo dominante (1-2 párrafos),\n'
+                    '"interpretacion_balance_elementos": elemento dominante y el más débil, como consejo fluido (1-2 párrafos),\n'
+                    '"interpretacion_personalidad_global": síntesis integrando Sol, Luna, Ascendente, elementos y '
+                    "aspectos principales (3 párrafos),\n"
+                    '"foda": objeto con "fortalezas", "debilidades", "oportunidades" y "amenazas", '
+                    "cada una con 4 frases cortas y concretas basadas en la carta.")
+        claves_a = ["texto_introductorio", "frase_destacada_sol", "frase_destacada_luna", "frase_destacada_asc",
+                    "frase_destacada_global", "interpretacion_sol_signo", "interpretacion_luna_signo",
+                    "luna_mecanismo", "luna_talento", "luna_necesidad", "interpretacion_asc_signo",
+                    "interpretacion_modos", "interpretacion_balance_elementos",
+                    "interpretacion_personalidad_global", "foda"]
+        a = _llamar_json(prompt_a, claves_a, 5000)
+
+        prompt_b = (datos_txt + "ASPECTOS A INTERPRETAR:\n" + "\n".join(lineas_asp) + "\n\n" + reglas + "\n\n"
+                    "Devuelve un JSON con:\n"
+                    '"gigantes": objeto con una clave por cada planeta (Júpiter, Saturno, Urano, Neptuno, Plutón) '
+                    "y como valor su interpretación en su signo y casa (1 párrafo cada una; para Urano, Neptuno y "
+                    "Plutón explica también el matiz generacional),\n"
+                    '"aspectos": lista de objetos {"id": número, "texto": interpretación breve (1 párrafo) del reto '
+                    "o ventaja del aspecto} con un objeto por cada aspecto listado.")
+        b = _llamar_json(prompt_b, ["gigantes"] + (["aspectos"] if aspectos else []), 5000)
+
+        gig_ia = b.get("gigantes", {})
+        gigantes = [{"nombre": n, "signo": pl[n]["signo"], "casa": pl[n]["casa"],
+                     "texto": str(gig_ia.get(n, "")).strip()} for n in GIGANTES]
+        textos_asp = {}
+        for item in b.get("aspectos", []) if isinstance(b.get("aspectos"), list) else []:
+            try:
+                textos_asp[int(item.get("id"))] = str(item.get("texto", "")).strip()
+            except (TypeError, ValueError):
+                continue
+        aspectos_int = [{"titulo": f"{x['a']} {x['aspecto']} {x['b']}",
+                         "subtitulo": f"orbe {_grados_min(x['orbe'])}",
+                         "texto": textos_asp.get(i + 1, "")} for i, x in enumerate(aspectos)]
+
+        foda_ia = a["foda"] if isinstance(a["foda"], dict) else {}
+        foda = {k: _lista_texto(foda_ia.get(k)) for k in ("fortalezas", "debilidades", "oportunidades", "amenazas")}
+
+        # Fecha y lugar tal como los espera la plantilla: "dd-mm-aaaa HH:MM - Lugar"
+        try:
+            f_loc = limpiar_fecha(cliente.get('Fecha')).strftime("%d-%m-%Y")
+            h_loc = hora_decimal_a_hms(hora_a_decimal(cliente.get('Hora')))[:5]
+        except ValueError:
+            f_loc = carta["fecha_ut"].strftime("%d-%m-%Y")
+            h_loc = hora_decimal_a_hms(carta["hora_ut"])[:5] + " UT"
+        ciudad = str(cliente.get('Ciudad') or '').replace('_', ', ').replace(' - ', ' ').strip()
+        pais = str(cliente.get('Pais') or '').strip()
+        lugar = ", ".join(x for x in (ciudad, pais.split('-')[-1] if pais else "") if x) or "Lugar no indicado"
+
+        ahora = datetime.now()
+        auditoria = (
+            "--- PANEL TÉCNICO NATAL ---\n"
+            f"NACIMIENTO UT: {carta['fecha_ut']:%d-%m-%Y} {hora_decimal_a_hms(carta['hora_ut'])} | "
+            f"Lat {carta['lat']:.4f} | Lon {carta['lon']:.4f}\n"
+            f"CASAS: {NOMBRE_SISTEMA_CASAS}\n"
+            f"AC {deg_to_dms_sign(carta['asc'])} | MC {deg_to_dms_sign(carta['mc'])}\n"
+            + "\n".join(f"{n}: {deg_to_dms_sign(d['lon'])} (casa {d['casa']})" + (" R" if d["retro"] else "")
+                        for n, d in pl.items()) + "\n"
+            "CÚSPIDES: " + " | ".join(f"{i + 1}: {deg_to_dms_sign(c)}" for i, c in enumerate(carta["cuspides"])) + "\n"
+            f"ELEMENTOS %: {elementos}\nMODOS %: {modos}\n"
+            "ASPECTOS: " + "; ".join(f"{x['a']} {x['aspecto']} {x['b']} ({x['orbe']:.1f}°)" for x in aspectos) + "\n"
+            "---------------------------")
+
         return {
             "nombre_cliente": nombre,
-            "sol": partes[0],
-            "luna": partes[1],
-            "ascendente": partes[2],
-            "global": partes[3]
+            "titulo_informe": "Carta Natal",
+            "titulo_bienvenida": "Bienvenida a tu carta natal" if es_mujer else
+                                 "Bienvenido a tu carta natal" if es_hombre else "Te damos la bienvenida a tu carta natal",
+            "fecha_entrega": f"{MESES_ES[ahora.month - 1]} {ahora.year}",
+            "tema_color": "rosa",
+            "auditoria_tecnica": auditoria,
+            "datos_nacimiento": f"{f_loc} {h_loc} - {lugar}",
+            "ruta_imagen_carta": svg_a_data_uri(dibujar_mandala_svg(carta, aspectos)),
+            "aspectos_clave": [f"Sol en {pl['Sol']['signo']}", f"Luna en {pl['Luna']['signo']}",
+                               f"Ascendente en {asc_signo}"],
+            "texto_introductorio": a["texto_introductorio"],
+            "interpretacion_modos": a["interpretacion_modos"],
+            "elementos": elementos,
+            "interpretacion_balance_elementos": a["interpretacion_balance_elementos"],
+            "frase_destacada_sol": a["frase_destacada_sol"],
+            "frase_destacada_luna": a["frase_destacada_luna"],
+            "frase_destacada_asc": a["frase_destacada_asc"],
+            "frase_destacada_global": a["frase_destacada_global"],
+            "sol": {"signo": pl["Sol"]["signo"], "casa": pl["Sol"]["casa"]},
+            "luna": {"signo": pl["Luna"]["signo"], "casa": pl["Luna"]["casa"],
+                     "mecanismo": a["luna_mecanismo"], "talento": a["luna_talento"], "necesidad": a["luna_necesidad"]},
+            "asc": {"signo": asc_signo},
+            "interpretacion_sol_signo": a["interpretacion_sol_signo"],
+            "interpretacion_luna_signo": a["interpretacion_luna_signo"],
+            "interpretacion_asc_signo": a["interpretacion_asc_signo"],
+            "foda": foda,
+            "gigantes_del_cielo": gigantes,
+            "aspectos_interpretados": aspectos_int,
+            "interpretacion_personalidad_global": a["interpretacion_personalidad_global"],
+            "datos_contacto": dict(DATOS_CONTACTO),
+            "texto_conectados": TEXTO_CONECTADOS,
         }, "informe_astroimpacto.html"
     except Exception as e:
         return None, f"Error técnico grave en el procesamiento de Natal: {str(e)}\n{traceback.format_exc()}"
