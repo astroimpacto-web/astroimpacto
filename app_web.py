@@ -183,7 +183,6 @@ if 'idx_prog_actual' not in st.session_state:
 # ==============================================================================
 # 4. CARGA Y NORMALIZACIÓN ROBUSTA DE BASES DE DATOS (GOOGLE SHEETS)
 # ==============================================================================
-@st.cache_data(ttl=5)
 def normalizar_columnas(df):
     """
     Mapea las columnas del Drive a nombres internos, 
@@ -208,30 +207,38 @@ def normalizar_columnas(df):
                 df.rename(columns={col: interno}, inplace=True)
     return df
     
-@st.cache_data(ttl=5)
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+
+@st.cache_resource
+def get_gsheet_client():
+    creds = Credentials.from_service_account_info(
+        dict(st.secrets["gcp_service_account"]), scopes=SCOPES
+    )
+    return gspread.authorize(creds)
+
+def _hoja_a_df(sh, nombre):
+    registros = sh.worksheet(nombre).get_all_records(numericise_ignore=["all"])
+    df = pd.DataFrame(registros)
+    return df.replace("", pd.NA).dropna(how="all")
+
+@st.cache_data(ttl=60)
 def cargar_bases_web():
     try:
         url_secreta = st.secrets["connections"]["gsheets"]["spreadsheet"]
         sheet_id = url_secreta.split("/d/")[1].split("/")[0] if "/d/" in url_secreta else url_secreta
-        
-        u_cli = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Consultantes"
-        u_prog = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Informes_Programados"
-        
-        df_c = pd.read_csv(u_cli).dropna(how="all")
-        df_p = pd.read_csv(u_prog).dropna(how="all")
-        
-        df_c = normalizar_columnas(df_c)
-        
-        if 'id_consultante' in df_c.columns:
-            df_c['id_consultante'] = df_c['id_consultante'].astype(str).str.replace('.0', '', regex=False).str.strip()
-        if 'id_consultante' in df_p.columns:
-            df_p['id_consultante'] = df_p['id_consultante'].astype(str).str.replace('.0', '', regex=False).str.strip()
-            
+
+        sh = get_gsheet_client().open_by_key(sheet_id)
+        df_c = normalizar_columnas(_hoja_a_df(sh, "Consultantes"))
+        df_p = _hoja_a_df(sh, "Informes_Programados")
+
+        for df in (df_c, df_p):
+            if "id_consultante" in df.columns:
+                df["id_consultante"] = df["id_consultante"].astype(str).str.replace(".0", "", regex=False).str.strip()
         return df_c, df_p
     except Exception as e:
         st.sidebar.error(f"Error cargando datos: {e}")
         return pd.DataFrame(), pd.DataFrame()
-
+        
 df_cli, df_prog = cargar_bases_web()
 
 # ==============================================================================
