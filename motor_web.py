@@ -264,22 +264,46 @@ def calcular_posiciones_base(cliente):
 # ==============================================================================
 # PROCESO 1: REVOLUCIÓN SOLAR (ESTRUCTURA DE 15 BLOQUES SIN RECORTES)
 # ==============================================================================
-def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, lugar_rs=None):
+def _jd_retorno_solar(sol_natal, anio, mes, dia):
+    """Día juliano (UT) en que el Sol vuelve a su longitud natal durante 'anio'."""
+    jd = swe.julday(anio, mes, max(1, dia - 1), 0.0, swe.GREG_CAL)
+    for _ in range(50):
+        sol_ahora = swe.calc_ut(jd, swe.SUN, FLAGS)[0][0]
+        diff = sol_natal - sol_ahora
+        if diff > 180: diff -= 360
+        elif diff < -180: diff += 360
+        if abs(diff) < 0.000001:
+            return jd
+        jd += diff / 0.9856
+    raise ValueError("No se pudo calcular el retorno solar (el cálculo no converge).")
+
+def resolver_retorno_solar(sol_natal, fecha_nac, anio_rs=None, ahora=None):
+    """Devuelve (anio, jd_rs).
+    - Si se indica anio_rs: calcula la RS de ese año.
+    - Si no (automático): elige la PRÓXIMA RS, es decir, la del año en curso si
+      todavía no ocurre; si ya ocurrió, la del año siguiente."""
+    if anio_rs is not None:
+        anio = int(anio_rs)
+        return anio, _jd_retorno_solar(sol_natal, anio, fecha_nac.month, fecha_nac.day)
+    ahora = ahora or datetime.now(timezone.utc)
+    jd_ahora = swe.julday(ahora.year, ahora.month, ahora.day,
+                          ahora.hour + ahora.minute / 60.0, swe.GREG_CAL)
+    anio = ahora.year
+    jd_rs = _jd_retorno_solar(sol_natal, anio, fecha_nac.month, fecha_nac.day)
+    if jd_rs < jd_ahora:
+        anio += 1
+        jd_rs = _jd_retorno_solar(sol_natal, anio, fecha_nac.month, fecha_nac.day)
+    return anio, jd_rs
+
+def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, lugar_rs=None, anio_rs=None):
+    """anio_rs=None -> calcula automáticamente la PRÓXIMA revolución solar."""
     try:
         planetas_nat, asc_nat, mc_nat, fecha_nac, hora_nac, lat_nat, lon_nat = calcular_posiciones_base(cliente)
         nombre = cliente.get('Nombres', 'Consultante')
         sol_natal = planetas_nat['Sol']
         luna_natal = planetas_nat['Luna']
-        anio_actual = datetime.now().year
 
-        jd_rs = swe.julday(anio_actual, fecha_nac.month, max(1, fecha_nac.day - 1), 0.0, swe.GREG_CAL)
-        for _ in range(50):
-            sol_ahora = swe.calc_ut(jd_rs, swe.SUN, FLAGS)[0][0]
-            diff = sol_natal - sol_ahora
-            if diff > 180: diff -= 360
-            elif diff < -180: diff += 360
-            if abs(diff) < 0.000001: break
-            jd_rs += diff / 0.9856
+        anio_rs, jd_rs = resolver_retorno_solar(sol_natal, fecha_nac, anio_rs)
 
         lat_calc = limpiar_coordenada(lat_rs) if lat_rs else lat_nat
         lon_calc = limpiar_coordenada(lon_rs) if lon_rs else lon_nat
@@ -294,12 +318,16 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
         jd_prog = jd_nat + (jd_rs - jd_nat) / 365.2422
         luna_prog_lon = float(swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0])
 
+        y_rs, m_rs, d_rs, h_rs = swe.revjul(jd_rs, swe.GREG_CAL)
+        momento_rs = f"{int(d_rs):02d}-{int(m_rs):02d}-{int(y_rs)} {hora_decimal_a_hms(h_rs)} UT"
+
         auditoria = (
-            f"--- PANEL TÉCNICO RS {anio_actual} ---\n"
+            f"--- PANEL TÉCNICO RS {anio_rs} ---\n"
             f"NACIMIENTO UT: {fecha_nac:%d-%m-%Y} {hora_decimal_a_hms(hora_nac)} | Lat {lat_nat:.4f} | Lon {lon_nat:.4f}\n"
             f"CASAS: {NOMBRE_SISTEMA_CASAS}\n"
             f"NATAL: Asc {deg_to_dms_sign(asc_nat)} | Sol {deg_to_dms_sign(sol_natal)} | Luna {deg_to_dms_sign(luna_natal)}\n"
-            f"RS {anio_actual}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(luna_rs)}\n"
+            f"MOMENTO RS: {momento_rs}\n"
+            f"RS {anio_rs}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(luna_rs)}\n"
             f"UBICACIÓN RS: {lugar_final}\n"
             f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
             f"-----------------------------------"
@@ -309,7 +337,7 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
         prompt = f"""
 DATOS TÉCNICOS REALES PARA {nombre}:
 Natal: Sol en {obtener_signo(sol_natal)}, Luna en {obtener_signo(luna_natal)}, Ascendente en {obtener_signo(asc_nat)}.
-RS {anio_actual}: Ascendente Anual en {obtener_signo(asc_rs)}, Luna Anual en {obtener_signo(planetas_rs['Luna'])}.
+RS {anio_rs}: Ascendente Anual en {obtener_signo(asc_rs)}, Luna Anual en {obtener_signo(planetas_rs['Luna'])}.
 Progresiones: Luna Progresada en {obtener_signo(luna_prog_lon)}.
 
 Genera exactamente 15 bloques de información astrológica profunda.
@@ -361,8 +389,8 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
 
         return {
             "nombre_cliente": nombre,
-            "titulo_informe": f"Revolución Solar {anio_actual}",
-            "anio_actual": anio_actual,
+            "titulo_informe": f"Revolución Solar {anio_rs}",
+            "anio_actual": anio_rs,
             "auditoria_tecnica": auditoria,
             "perspectivas": {
                 "transformacion": partes[0],
