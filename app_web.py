@@ -397,10 +397,10 @@ elif modo_app == "⚙️ Taller de Informes":
             st.sidebar.markdown(diag_html, unsafe_allow_html=True)
             
             # Alertas de seguridad
-            if h_dec == 0.0 and str(h_final) != "0":
-                st.sidebar.warning("⚠️ La hora no se reconoce. Revisa el formato en el Drive.")
-            elif h_dec < 10.0 and "10:" in str(h_final):
-                st.sidebar.error("⚠️ Error de lectura crítico: Se detectó hora local en lugar de UT.")
+            payload_check = {k: cli_obj.get(k) for k in ("Fecha_UT", "Hora_UT", "Fecha", "Hora", "Gmt")}
+            aviso_ut = motor_web.verificar_consistencia_ut(payload_check)
+            if aviso_ut:
+                st.sidebar.error(f"⚠️ {aviso_ut}")
             # ==============================================================================
 
             lat_rs = None
@@ -454,6 +454,7 @@ elif modo_app == "⚙️ Taller de Informes":
                 payload_motor["lat"] = cli_obj.get("Latitud")
                 payload_motor["Longitud"] = cli_obj.get("Longitud")
                 payload_motor["lon"] = cli_obj.get("Longitud")
+                payload_motor["Gmt"] = cli_obj.get("Gmt")
                 
                 # Inyectar las variables UT para asegurar la matemática
                 payload_motor["Fecha_UT"] = cli_obj.get("Fecha_UT")
