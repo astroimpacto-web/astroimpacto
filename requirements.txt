@@ -5,3 +5,5 @@ geopy
 pyswisseph
 st-gsheets-connection
 openai
+gspread
+google-auth
