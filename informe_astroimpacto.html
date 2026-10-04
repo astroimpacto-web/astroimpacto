@@ -169,13 +169,14 @@
             </div>
             
             <h1 class="font-serif text-5xl text-gris-carbon font-bold tracking-wide mb-4 mt-8">{{ titulo_informe }}</h1>
-            <p class="font-sans text-theme-accent text-xl tracking-[0.3em] uppercase mb-8 font-light">Mapa de Identidad & Potencial</p>
+            <p class="font-sans text-theme-accent text-xl tracking-[0.3em] uppercase mb-8 font-light">{{ t.subtitulo }}</p>
             <div class="w-24 h-[1px] bg-theme-accent mx-auto"></div>
         </div>
         <div class="mb-16">
-            <p class="font-sans text-gris-carbon text-sm uppercase tracking-widest mb-2 font-semibold">Preparado para:</p>
+            <p class="font-sans text-gris-carbon text-sm uppercase tracking-widest mb-2 font-semibold">{{ t.preparado_para }}</p>
             <h3 class="font-serif text-3xl text-gris-carbon mb-8 italic">{{ nombre_cliente }}</h3>
             <p class="font-sans text-gray-400 text-xs uppercase tracking-widest">{{ fecha_entrega }}</p>
+            {% if solicitante %}<p class="font-sans text-gris-carbon text-xs tracking-widest mt-4"><span class="uppercase text-gray-400">{{ t.solicitado_por }}</span> {{ solicitante }}</p>{% endif %}
         </div>
     </div>
 
@@ -202,18 +203,22 @@
             <div class="bg-gris-suave p-6 rounded-lg border-l-4 border-theme-accent mb-10 mt-6 shadow-md">
                 <div class="flex items-center gap-3 mb-4">
                     <span class="text-2xl text-theme-accent font-serif">✨</span>
-                    <h3 class="font-sans font-bold text-sm uppercase tracking-widest text-gris-carbon">Tu Tríada Principal (Síntesis)</h3>
+                    <h3 class="font-sans font-bold text-sm uppercase tracking-widest text-gris-carbon">{{ t.triada }}</h3>
                 </div>
                 <div class="font-sans text-gray-700">
-                    <ul class="flex flex-wrap justify-between">
-                        {% for aspecto in aspectos_clave %}
-                            <li class="w-1/3 text-center text-sm font-semibold text-theme-accent p-1">{{ aspecto }}</li>
+                    <div class="grid grid-cols-3 gap-3">
+                        {% for item in aspectos_clave %}
+                        <div class="bg-white rounded-lg border border-theme-accent p-3 text-center shadow-sm">
+                            <div class="font-serif text-2xl text-theme-accent mb-1">{{ item.glifo }}</div>
+                            <div class="font-sans text-xs font-bold uppercase tracking-wider text-gris-carbon mb-2">{{ item.titulo }}</div>
+                            <div class="font-serif italic text-sm text-gray-600 leading-snug">{{ item.rasgo }}</div>
+                        </div>
                         {% endfor %}
-                    </ul>
+                    </div>
                 </div>
             </div>
             
-            <h3 class="font-sans font-bold text-sm uppercase tracking-widest mb-4 mt-8 flex items-center gap-2"><span class="text-theme-accent text-xl">✦</span> Tu Mandala Astrológico</h3>
+            <h3 class="font-sans font-bold text-sm uppercase tracking-widest mb-4 mt-8 flex items-center gap-2"><span class="text-theme-accent text-xl">✦</span> {{ t.mandala }}</h3>
             
             <div class="w-full aspect-square max-h-[400px] border border-theme-accent bg-gris-suave flex flex-col items-center justify-center text-theme-accent mb-8 shadow-inner overflow-hidden">
                 <img src="{{ ruta_imagen_carta }}" alt="Carta Natal" class="w-full h-full object-contain">
@@ -230,7 +235,7 @@
             </div>
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">02</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">02</span>
         </footer>
     </div>
 
@@ -292,7 +297,7 @@
             </div>
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">03</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">03</span>
         </footer>
     </div>
 
@@ -312,7 +317,7 @@
         <main class="text-gris-carbon flex-grow">
             <div class="flex items-center gap-4 mb-6">
                 <span class="text-6xl text-theme-accent font-serif">☉</span>
-                <h2 class="font-serif text-4xl text-gris-carbon">El Sol: Tu Esencia</h2>
+                <h2 class="font-serif text-4xl text-gris-carbon">{{ t.sol }}</h2>
             </div>
             
             <div class="bg-gris-suave p-6 rounded-lg border-l-4 border-theme-accent mb-8">
@@ -326,7 +331,7 @@
             </div>
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">04</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">04</span>
         </footer>
     </div>
 
@@ -346,7 +351,7 @@
         <main class="text-gris-carbon flex-grow">
             <div class="flex items-center gap-4 mb-6">
                 <span class="text-6xl text-theme-accent font-serif">☽</span>
-                <h2 class="font-serif text-4xl text-gris-carbon">La Luna: Tu Refugio</h2>
+                <h2 class="font-serif text-4xl text-gris-carbon">{{ t.luna }}</h2>
             </div>
 
             <div class="bg-gris-suave p-6 rounded-lg border-l-4 border-theme-accent mb-8">
@@ -366,7 +371,7 @@
             </ul>
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">05</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">05</span>
         </footer>
     </div>
 
@@ -386,7 +391,7 @@
         <main class="text-gris-carbon flex-grow">
             <div class="flex items-center gap-4 mb-6">
                 <span class="text-6xl text-theme-accent font-serif">AC</span>
-                <h2 class="font-serif text-4xl text-gris-carbon">Ascendente: Tu Ruta</h2>
+                <h2 class="font-serif text-4xl text-gris-carbon">{{ t.asc }}</h2>
             </div>
 
             <div class="bg-gris-suave p-6 rounded-lg border-l-4 border-theme-accent mb-8">
@@ -400,7 +405,7 @@
             </div>
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">06</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">06</span>
         </footer>
     </div>
     
@@ -417,12 +422,12 @@
             </div>
         </header>
         <main class="text-gris-carbon flex-grow">
-            <h2 class="font-serif text-3xl text-theme-accent mb-8">Análisis de Potencial: FODA Personal</h2>
-            <p class="texto-ia mb-8">Este análisis FODA (Fortalezas, Oportunidades, Debilidades, Amenazas) se basa en la síntesis de tus posiciones planetarias clave (Sol, Luna y Ascendente) para ofrecerte una hoja de ruta práctica.</p>
+            <h2 class="font-serif text-3xl text-theme-accent mb-8">{{ t.foda_titulo }}</h2>
+            <p class="texto-ia mb-8">{{ t.foda_intro }}</p>
 
             <div class="grid grid-cols-2 gap-8">
                 <div>
-                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ Fortalezas (Potencias a Usar)</h3>
+                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ {{ t.foda_f }}</h3>
                     <ul class="astro-list text-sm space-y-2">
                         {% for item in foda.fortalezas %}
                             <li>{{ item }}</li>
@@ -430,7 +435,7 @@
                     </ul>
                 </div>
                 <div>
-                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ Debilidades (Patrones a Observar)</h3>
+                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ {{ t.foda_d }}</h3>
                     <ul class="astro-list text-sm space-y-2">
                         {% for item in foda.debilidades %}
                             <li>{{ item }}</li>
@@ -438,7 +443,7 @@
                     </ul>
                 </div>
                 <div class="mt-6">
-                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ Oportunidades (Rutas de Crecimiento)</h3>
+                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ {{ t.foda_o }}</h3>
                     <ul class="astro-list text-sm space-y-2">
                         {% for item in foda.oportunidades %}
                             <li>{{ item }}</li>
@@ -446,7 +451,7 @@
                     </ul>
                 </div>
                 <div class="mt-6">
-                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ Amenazas (Riesgos Internos)</h3>
+                    <h3 class="font-sans font-bold text-lg mb-4 text-theme-accent flex items-center gap-2">✦ {{ t.foda_a }}</h3>
                     <ul class="astro-list text-sm space-y-2">
                         {% for item in foda.amenazas %}
                             <li>{{ item }}</li>
@@ -456,7 +461,7 @@
             </div>
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">07</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">07</span>
         </footer>
     </div>
 
@@ -475,7 +480,7 @@
         <main class="text-gris-carbon flex-grow">
             <h2 class="font-serif text-3xl text-theme-accent mb-8">Los Gigantes del Cielo</h2>
             <div class="texto-ia mb-6">
-                <p>Los planetas sociales (Júpiter y Saturno) y transpersonales (Urano, Neptuno y Plutón) marcan el tono de tu generación y señalan las áreas de gran transformación a largo plazo en tu vida.</p>
+                <p>{{ t.gigantes_intro }}</p>
             </div>
 
             {% for gigante in gigantes_del_cielo %}
@@ -491,7 +496,7 @@
             
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">08</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">08</span>
         </footer>
     </div>
 
@@ -511,7 +516,7 @@
             <h2 class="font-serif text-3xl text-theme-accent mb-8">Aspectos Planetarios Clave</h2>
             
             <div class="texto-ia mb-6">
-                <p>Esta sección proporciona una visión sintética de las interacciones más importantes (aspectos) entre los planetas en tu carta natal. Estos aspectos definen tus talentos y desafíos internos.</p>
+                <p>{{ t.aspectos_intro }}</p>
             </div>
 
             {% for aspecto in aspectos_interpretados %}
@@ -533,7 +538,7 @@
             
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">09</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">09</span>
         </footer>
     </div>
     
@@ -550,31 +555,40 @@
             </div>
         </header>
         <main class="text-gris-carbon flex-grow">
-            <h2 class="font-serif text-3xl text-theme-accent mb-8">Interpretación Global de la Personalidad</h2>
+            <h2 class="font-serif text-3xl text-theme-accent mb-8">{{ t.global_titulo }}</h2>
             
             <div class="texto-ia mb-6">
                 <p>{{ frase_destacada_global }}</p>
             </div>
+
+            {% if claves_carta %}
+            <div class="mb-6 p-5 rounded-lg border border-theme-accent bg-white shadow-sm">
+                <h3 class="font-sans font-bold text-sm uppercase tracking-widest mb-3 text-theme-accent flex items-center gap-2"><span class="text-xl">✦</span> {{ t.claves_titulo }}</h3>
+                <ol class="font-sans text-sm text-gray-700 space-y-2 list-decimal pl-5">
+                    {% for c in claves_carta %}<li>{{ c }}</li>{% endfor %}
+                </ol>
+            </div>
+            {% endif %}
             
             <div class="texto-ia bg-gris-suave p-6 rounded-lg border-l-4 border-theme-accent shadow-md">
                 {{ interpretacion_personalidad_global | safe }}
             </div>
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">10</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">10</span>
         </footer>
     </div>
 
     <!-- PÁGINA 11: DESPEDIDA -->
     <div class="a4-page flex flex-col justify-between text-center bg-gris-suave transition-colors duration-300 page-break-before" style="display: flex !important;">
         <div class="mt-20">
-            <h2 class="font-serif text-4xl text-theme-accent mb-6">Gracias por confiar en tu proceso</h2>
+            <h2 class="font-serif text-4xl text-theme-accent mb-6">{{ t.despedida_titulo }}</h2>
             <div class="w-16 h-1 bg-theme-accent mx-auto mb-10"></div>
             <p class="font-sans text-gris-carbon leading-loose max-w-lg mx-auto mb-12">
-                Espero que este informe te haya dado la claridad y el impacto que buscabas. Recuerda que los astros inclinan, pero no obligan. Te dejo mis datos para que sigamos en contacto.
+                {{ t.despedida_texto }}
             </p>
             <div class="w-32 h-32 bg-white rounded-full mx-auto border-4 border-theme-accent shadow-lg flex items-center justify-center overflow-hidden mb-6">
-                <img src="imagen_1.jpg" 
+                <img src="{{ foto_base64 or 'imagen_1.jpg' }}" 
                      alt="Patricia Ramirez" 
                      class="w-full h-full object-cover object-center contrast-110 brightness-110">
             </div>
@@ -596,9 +610,9 @@
         </div>
 
         <footer class="border-t border-theme-accent pt-4 text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto. Todos los derechos reservados.</span><span class="font-bold text-theme-accent text-sm">11</span>
+            <span>© {{ anio_informe }} AstroImpacto. Todos los derechos reservados.</span><span class="font-bold text-theme-accent text-sm">11</span>
         </footer>
     </div>
 
 </body>
-</html>
+</html>

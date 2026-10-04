@@ -25,7 +25,8 @@ def get_base_64_of_bin_file(bin_file):
         if os.path.exists(bin_file):
             with open(bin_file, 'rb') as f:
                 data = f.read()
-            return f"data:image/png;base64,{base64.b64encode(data).decode()}"
+            mime = "image/jpeg" if bin_file.lower().endswith((".jpg", ".jpeg")) else "image/png"
+            return f"data:{mime};base64,{base64.b64encode(data).decode()}"
         else:
             return ""
     except Exception as e:
@@ -668,6 +669,14 @@ elif modo_app == "⚙️ Taller de Informes":
                 d_actual['t'] = motor_web.textos_fijos(d_actual.get('trato'), d_actual.get('nombre_cliente', ''))
             t_fijos = d_actual['t']
 
+            try:
+                with open(st.session_state.plantilla_usar, encoding='utf-8') as _f:
+                    _plantilla_vieja = "{{ t.triada }}" not in _f.read()
+            except Exception:
+                _plantilla_vieja = False
+            if _plantilla_vieja:
+                st.error("⚠️ El archivo informe_astroimpacto.html del repositorio es la versión ANTIGUA: el diseño no mostrará bien la tríada, el tratamiento ni el FODA en memoria. Súbelo junto con los otros archivos.")
+
             aviso_voz = st.container()   # se rellena al final, con lo que quede después de editar
 
             with st.expander("1. Introducción y frases destacadas", expanded=False):
@@ -765,6 +774,7 @@ elif modo_app == "⚙️ Taller de Informes":
         
         # Preparación de imágenes y logo antes de la generación final
         d_actual['logo_base64'] = get_base_64_of_bin_file('apple-icon.png')
+        d_actual['foto_base64'] = get_base_64_of_bin_file('imagen_1.jpg')   # la foto viaja dentro del HTML
         
         try:
             env_jinja = Environment(loader=FileSystemLoader('.'))
