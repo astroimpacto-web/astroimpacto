@@ -85,6 +85,9 @@
             h2, h3 { break-after: avoid; page-break-after: avoid; }
             .texto-ia p, .item-bloque, ul, li, .element-bar-bg { break-inside: avoid; page-break-inside: avoid; }
             footer { break-before: avoid; }
+            /* Cajas, tarjetas, imágenes y cuadrículas pequeñas no se cortan entre hojas */
+            .rounded-lg, .bg-gris-suave, .border-l-4, .grid, img, svg, .item-bloque { break-inside: avoid; page-break-inside: avoid; }
+            .texto-ia.bg-gris-suave { break-inside: auto; page-break-inside: auto; }  /* el relato final sí puede continuar en otra hoja */
         }
 
         .divider-line {
@@ -225,6 +228,7 @@
                 </div>
             </div>
             
+            <div class="item-bloque">
             <h3 class="font-sans font-bold text-sm uppercase tracking-widest mb-4 mt-8 flex items-center gap-2"><span class="text-theme-accent text-xl">✦</span> {{ t.mandala }}</h3>
             
             <div class="w-full aspect-square max-h-[400px] border border-theme-accent bg-gris-suave flex flex-col items-center justify-center text-theme-accent mb-8 shadow-inner overflow-hidden">
@@ -239,6 +243,7 @@
                 <div><span class="block font-sans text-xs uppercase text-gray-400 mb-1">Fecha Nac.</span><strong class="font-serif text-gris-carbon">{{ date_time[0] }}</strong></div>
                 <div><span class="block font-sans text-xs uppercase text-gray-400 mb-1">Hora</span><strong class="font-serif text-gris-carbon">{{ date_time[1] }}</strong></div>
                 <div><span class="block font-sans text-xs uppercase text-gray-400 mb-1">Lugar</span><strong class="font-serif text-gris-carbon">{{ place }}</strong></div>
+            </div>
             </div>
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
