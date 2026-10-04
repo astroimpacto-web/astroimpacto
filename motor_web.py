@@ -426,7 +426,7 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
             partes_raw = resultado.split('|||')
             partes = [re.sub(r'^\d+[\.\)\-\s]*', '', p).strip() for p in partes_raw]
         else:
-            partes = ["(Información no generada por error de conexión con el motor IA)"] * 15
+            raise ValueError("La IA no entregó el informe de Revolución Solar (sin respuesta válida tras 3 intentos). Intenta de nuevo en unos minutos.")
 
         while len(partes) < 16:
             partes.append("")
@@ -436,7 +436,7 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
                 items = [x.strip() for x in texto.split('&&&') if len(x.strip()) > 5]
             else:
                 items = [x.strip() for x in texto.replace('*', '\n').split('\n') if len(x.strip()) > 5]
-            return items if items else ["(Acción sugerida según tu configuración estelar actual)"]
+            return items
 
         return {
             "nombre_cliente": nombre,
@@ -462,16 +462,13 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
             "plan_accion_objetivos": procesar_lista(partes[13]),
             "situacion_emocional": partes[14],
             # -----------------------------------------------------------
-            "panorama_trimestral": [
-                {"titulo": "Primer Trimestre", "texto": "Inicio del ciclo con foco en la energía del Ascendente Anual."},
-                {"titulo": "Segundo Trimestre", "texto": "Desarrollo emocional basado en las necesidades de la Luna de Revolución."},
-                {"titulo": "Tercer Trimestre", "texto": "Materialización de objetivos y maduración de los tránsitos lentos."},
-                {"titulo": "Cuarto Trimestre", "texto": "Integración final de aprendizajes antes del próximo retorno solar."},
-            ],
-            "oportunidades_profesionales": ["Consolidación de proyectos clave.", "Nuevas alianzas estratégicas."],
-            "como_enfrentar_profesional": ["Con planificación detallada.", "Evitando la dispersión energética."],
-            "oportunidades_relaciones": ["Vínculos más auténticos y honestos.", "Poner límites sanos y constructivos."],
-            "plan_accion_preguntas": ["¿Qué quiero soltar en este nuevo ciclo?", "¿Cómo voy a nutrir mi propósito vital hoy?"]
+            # Estos bloques traían textos fijos que no guardaban relación con la interpretación de cada consultante:
+            # se dejan vacíos y la plantilla los omite. Solo se muestra lo que redacta la IA con los datos reales.
+            "panorama_trimestral": [],
+            "oportunidades_profesionales": [],
+            "como_enfrentar_profesional": [],
+            "oportunidades_relaciones": [],
+            "plan_accion_preguntas": []
         }, "informe_astroimpacto_rs.html"
     except Exception as e:
         return None, f"Error técnico grave en el procesamiento de la RS: {str(e)}\n{traceback.format_exc()}"

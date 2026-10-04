@@ -51,6 +51,7 @@
     </style>
 </head>
 <body>
+{% set tiene_pan = panorama_trimestral is defined and panorama_trimestral|length > 0 %}{% set off = 0 if tiene_pan else 1 %}
 
     <!-- PORTADA -->
     <div class="a4-page text-center justify-center items-center border-t-8 border-theme-accent" style="display: flex !important; background-color: var(--color-bg-tint);">
@@ -195,6 +196,7 @@
                 {{ progresiones_secundarias | safe }}
             </div>
             
+            {% if como_actuar_progresiones %}
             <div class="bg-gris-suave p-6 rounded-lg border border-gray-200 avoid-break border-l-4 border-l-theme-accent">
                 <h3 class="font-sans font-bold text-theme-accent mb-4">Cómo actuar ante este escenario:</h3>
                 <ul class="bullet-list mb-0">
@@ -203,6 +205,7 @@
                     {% endfor %}
                 </ul>
             </div>
+            {% endif %}
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
             <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">05</span>
@@ -235,6 +238,7 @@
                 {{ revolucion_solar_general_1 | safe }}
             </div>
 
+            {% if revo_propone %}
             <div class="bg-white p-6 shadow-sm border border-gray-100 rounded-lg avoid-break">
                 <h3 class="font-sans font-bold text-theme-accent mb-4">Esta revo te propone:</h3>
                 <ul class="bullet-list mb-0">
@@ -243,6 +247,7 @@
                     {% endfor %}
                 </ul>
             </div>
+            {% endif %}
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
             <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">06</span>
@@ -268,6 +273,7 @@
                 {{ situacion_laboral_economica | safe }}
             </div>
 
+            {% if logro_objetivos_profesionales %}
             <div class="avoid-break mb-6">
                 <h3 class="font-sans font-bold text-theme-accent mb-3 text-sm uppercase tracking-wide">Para el logro de objetivos profesionales se te pide:</h3>
                 <ul class="bullet-list">
@@ -276,7 +282,9 @@
                     {% endfor %}
                 </ul>
             </div>
+            {% endif %}
 
+            {% if oportunidades_profesionales %}
             <div class="avoid-break mb-6">
                 <h3 class="font-sans font-bold text-theme-accent mb-3 text-sm uppercase tracking-wide">Posibles oportunidades de crecimiento profesional:</h3>
                 <ul class="bullet-list">
@@ -285,7 +293,9 @@
                     {% endfor %}
                 </ul>
             </div>
+            {% endif %}
 
+            {% if como_enfrentar_profesional %}
             <div class="avoid-break">
                 <h3 class="font-sans font-bold text-theme-accent mb-3 text-sm uppercase tracking-wide">Cómo enfrentar el {{ anio_rs }} en términos profesionales:</h3>
                 <ul class="bullet-list mb-0">
@@ -294,6 +304,7 @@
                     {% endfor %}
                 </ul>
             </div>
+            {% endif %}
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
             <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">07</span>
@@ -326,6 +337,7 @@
                 {{ situacion_emocional | safe }}
             </div>
 
+            {% if oportunidades_relaciones %}
             <div class="bg-gris-suave p-6 rounded-lg border border-gray-200 avoid-break mt-8">
                 <h3 class="font-sans font-bold text-theme-accent mb-4 text-sm uppercase tracking-wide flex items-center gap-2"><span class="text-xl">✦</span> Oportunidades en relaciones:</h3>
                 <ul class="bullet-list mb-0">
@@ -334,12 +346,14 @@
                     {% endfor %}
                 </ul>
             </div>
+            {% endif %}
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
             <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">08</span>
         </footer>
     </div>
 
+    {% if tiene_pan %}
     <!-- PANORAMA TRIMESTRAL -->
     <div class="a4-page page-break-before">
         <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
@@ -372,6 +386,7 @@
             <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">09</span>
         </footer>
     </div>
+    {% endif %}
 
     <!-- PLAN DE ACCIÓN -->
     <div class="a4-page page-break-before">
@@ -396,6 +411,7 @@
         <main class="content-relative flex-grow">
             <h2 class="font-serif text-2xl text-theme-accent mb-6 font-bold border-l-4 border-theme-accent pl-3">Plan de Acción {{ anio_rs }}</h2>
             
+            {% if plan_accion_objetivos %}
             <div class="mb-8 avoid-break">
                 <h3 class="font-sans font-bold text-gris-carbon mb-4">Objetivos sugeridos:</h3>
                 <ul class="numbered-list">
@@ -404,7 +420,9 @@
                     {% endfor %}
                 </ul>
             </div>
+            {% endif %}
 
+            {% if plan_accion_preguntas %}
             <div class="bg-white shadow-sm p-8 rounded border border-gray-100 avoid-break mb-10">
                 <h3 class="font-serif text-xl text-theme-accent italic font-bold mb-4">Preguntas para tu reflexión</h3>
                 <ul class="numbered-list mb-0">
@@ -413,9 +431,10 @@
                     {% endfor %}
                 </ul>
             </div>
+            {% endif %}
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">10</span>
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">{{ '%02d' % (10 - off) }}</span>
         </footer>
     </div>
 
@@ -450,9 +469,9 @@
         </div>
 
         <footer class="border-t border-theme-accent pt-4 text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto. Todos los derechos reservados.</span><span class="font-bold text-theme-accent text-sm">11</span>
+            <span>© 2025 AstroImpacto. Todos los derechos reservados.</span><span class="font-bold text-theme-accent text-sm">{{ '%02d' % (11 - off) }}</span>
         </footer>
     </div>
 
 </body>
-</html>
+</html>
