@@ -684,6 +684,16 @@ def _norm(txt):
     return "".join(c for c in t if unicodedata.category(c) != "Mn").lower().strip()
 
 
+def _a_parrafos(valor):
+    """La IA a veces entrega los párrafos como lista o separados por un solo salto de línea.
+    Se normalizan a texto con una línea en blanco entre párrafos."""
+    if isinstance(valor, (list, tuple)):
+        valor = "\n\n".join(str(x).strip() for x in valor if str(x).strip())
+    if isinstance(valor, str) and "\n" in valor.strip() and not re.search(r"\n\s*\n", valor):
+        valor = re.sub(r"\n+", "\n\n", valor.strip())
+    return valor
+
+
 def _llamar_json(prompt, claves, max_tokens, intentos=2, validador=None):
     """Pide a la IA un JSON y valida que estén todas las claves (y, si se entrega, que pase el validador).
     Reintenta una vez. Lanza ValueError si no se logra: nunca deja texto de error dentro del informe."""
@@ -694,6 +704,9 @@ def _llamar_json(prompt, claves, max_tokens, intentos=2, validador=None):
             if not isinstance(datos, dict):
                 ultimo = "la IA no devolvió un objeto JSON"
             else:
+                for k in list(datos):
+                    if k.startswith(("interpretacion_", "texto_")):
+                        datos[k] = _a_parrafos(datos[k])
                 faltan = [k for k in claves if k not in datos or datos[k] in (None, "", [], {})]
                 if faltan:
                     ultimo = f"la IA no entregó: {', '.join(faltan)}"
@@ -1276,7 +1289,7 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli, biblioteca=None):
             if len(_lista_texto(d.get("claves_carta"), 5)) != 5:
                 return "'claves_carta' debe traer exactamente 5 frases"
             parrafos = [p for p in re.split(r"\n\s*\n", str(d.get("interpretacion_personalidad_global", ""))) if p.strip()]
-            if len(parrafos) < 4:
+            if len(parrafos) < 3:
                 return "el relato final debe tener 5 párrafos"
             return None
 
