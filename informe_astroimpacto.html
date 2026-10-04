@@ -49,11 +49,11 @@
         }
         
         /* --- CONFIGURACIÓN PARA PDF / IMPRESIÓN --- */
-        /* Los márgenes los pone la hoja (@page) y no cada bloque: así, cuando una sección ocupa más de
-           una página, la continuación también queda con sus márgenes y nada se desplaza. */
+        /* Los márgenes van como padding de cada página con box-decoration-break: clone: se repiten en CADA hoja
+           aunque una sección ocupe varias, y funcionan igual con márgenes "Ninguno" o "Predeterminado" en Chrome. */
         @page {
             size: A4;
-            margin: 18mm 20mm;
+            margin: 0;
         }
 
         @media print {
@@ -67,9 +67,10 @@
             .no-print { display: none; }
             .a4-page {
                 margin: 0 !important;
-                padding: 0 !important;
+                padding: 18mm 20mm !important;
+                box-decoration-break: clone; -webkit-box-decoration-break: clone;
                 box-shadow: none !important;
-                width: auto !important;
+                width: 210mm !important; box-sizing: border-box;
                 min-height: 0 !important;
                 height: auto !important;
                 display: block !important; /* Evita que Flexbox parta el texto por la mitad */
@@ -78,8 +79,8 @@
             }
             .a4-page:last-of-type { break-after: auto; page-break-after: auto; }
             .page-break-before { break-before: auto; page-break-before: auto; } /* ya hay salto al final de cada página */
-            /* Portada y despedida: ocupan una hoja completa (alto útil = 297mm - 2 x 18mm) */
-            .a4-page.pagina-completa { min-height: 255mm !important; display: flex !important; }
+            /* Portada y despedida: ocupan una hoja completa */
+            .a4-page.pagina-completa { min-height: 296mm !important; display: flex !important; }
             /* Evita cortes feos sin forzar que bloques largos salten de hoja */
             h2, h3 { break-after: avoid; page-break-after: avoid; }
             .texto-ia p, .item-bloque, ul, li, .element-bar-bg { break-inside: avoid; page-break-inside: avoid; }
