@@ -301,6 +301,37 @@ def resolver_retorno_solar(sol_natal, fecha_nac, anio_rs=None, ahora=None):
         jd_rs = _jd_retorno_solar(sol_natal, anio, fecha_nac.month, fecha_nac.day)
     return anio, jd_rs
 
+def transitos_lentos_rs(jd_rs, planetas_nat, asc_nat, mc_nat, cusps_nat=None, orbe=3.0):
+    """Posiciones REALES de Júpiter, Saturno, Urano, Neptuno y Plutón en el momento de la revolución solar,
+    su casa natal, su situación al final del año y los aspectos mayores (orbe <= 3°) a los puntos natales.
+    Devuelve (lineas_de_texto, lista_de_dicts)."""
+    puntos_nat = dict(planetas_nat)
+    puntos_nat["Ascendente"], puntos_nat["Medio Cielo"] = asc_nat, mc_nat
+    lineas, datos = [], []
+    for nombre, id_p in PLANETAS_TRANSITO:
+        r0 = swe.calc_ut(float(jd_rs), id_p, FLAGS)[0]
+        r1 = swe.calc_ut(float(jd_rs) + 365.2422, id_p, FLAGS)[0]
+        lon0, retro, lon1 = float(r0[0]), float(r0[3]) < 0, float(r1[0])
+        txt = f"{nombre} en {obtener_signo(lon0)} {int(lon0 % 30)}°" + (" (retrógrado)" if retro else "")
+        casa = casa_de(lon0, cusps_nat) if cusps_nat else None
+        if casa:
+            txt += f", en tu casa natal {casa}"
+        if obtener_signo(lon1) != obtener_signo(lon0):
+            txt += f"; al terminar el año estará en {obtener_signo(lon1)}"
+        asp = []
+        for pn, lp in puntos_nat.items():
+            d = diferencia_angular(lon0, lp)
+            for an, ang, _ in ASPECTOS_NATAL:
+                if abs(d - ang) <= orbe:
+                    asp.append(f"{an} a {pn} natal (orbe {abs(d - ang):.1f}°)")
+                    break
+        if asp:
+            txt += " | Aspectos: " + "; ".join(asp)
+        lineas.append(txt)
+        datos.append({"planeta": nombre, "signo": obtener_signo(lon0), "retro": retro, "casa": casa, "aspectos": asp})
+    return lineas, datos
+
+
 def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, lugar_rs=None, anio_rs=None):
     """anio_rs=None -> PRÓXIMA revolución solar; anio_rs='vigente' -> la en curso (última cumplida); o un año concreto."""
     try:
@@ -324,6 +355,17 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
         jd_prog = jd_nat + (jd_rs - jd_nat) / 365.2422
         luna_prog_lon = float(swe.calc_ut(jd_prog, swe.MOON, FLAGS)[0][0])
 
+        # Casas natales (para ubicar los tránsitos lentos en las casas del consultante)
+        try:
+            jd_nat_c = swe.julday(fecha_nac.year, fecha_nac.month, fecha_nac.day, hora_nac, swe.GREG_CAL)
+            cusps_n = [float(c) for c in swe.houses(float(jd_nat_c), float(lat_nat), float(lon_nat), SISTEMA_CASAS)[0]]
+            cusps_n = cusps_n[1:] if len(cusps_n) == 13 else cusps_n
+            if len(cusps_n) != 12:
+                cusps_n = None
+        except Exception:
+            cusps_n = None
+        lineas_lentos, _datos_lentos = transitos_lentos_rs(jd_rs, planetas_nat, asc_nat, mc_nat, cusps_n)
+
         y_rs, m_rs, d_rs, h_rs = swe.revjul(jd_rs, swe.GREG_CAL)
         momento_rs = f"{int(d_rs):02d}-{int(m_rs):02d}-{int(y_rs)} {hora_decimal_a_hms(h_rs)} UT"
 
@@ -336,6 +378,7 @@ def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, luga
             f"RS {anio_rs}: Asc {deg_to_dms_sign(asc_rs)} | Luna {deg_to_dms_sign(luna_rs)}\n"
             f"UBICACIÓN RS: {lugar_final}\n"
             f"PROGRESIÓN: Luna en {deg_to_dms_sign(luna_prog_lon)}\n"
+            "TRÁNSITOS LENTOS AL MOMENTO DE LA RS:\n" + "\n".join(lineas_lentos) + "\n"
             f"-----------------------------------"
         )
 
@@ -345,10 +388,12 @@ DATOS TÉCNICOS REALES PARA {nombre}:
 Natal: Sol en {obtener_signo(sol_natal)}, Luna en {obtener_signo(luna_natal)}, Ascendente en {obtener_signo(asc_nat)}.
 RS {anio_rs}: Ascendente Anual en {obtener_signo(asc_rs)}, Luna Anual en {obtener_signo(planetas_rs['Luna'])}.
 Progresiones: Luna Progresada en {obtener_signo(luna_prog_lon)}.
+TRÁNSITOS LENTOS REALES AL MOMENTO DE LA REVOLUCIÓN SOLAR (calculados con efemérides; son los únicos que existen para este informe):
+{chr(10).join("- " + l for l in lineas_lentos)}
 
 Genera exactamente 15 bloques de información astrológica profunda.
 REGLA VITAL 1: EMPIEZA TU RESPUESTA EXACTAMENTE CON "ASTRO-START:" y separa cada bloque únicamente con el símbolo "|||". NO escribas saludos ni introducciones adicionales que puedan desplazar el texto.
-REGLA VITAL 2: Tienes estrictamente PROHIBIDO inventar signos. Usa solo los datos reales indicados arriba.
+REGLA VITAL 2: Tienes estrictamente PROHIBIDO inventar signos o posiciones. Usa solo los datos reales indicados arriba. NUNCA uses tu memoria sobre dónde están los planetas lentos (Júpiter, Saturno, Urano, Neptuno, Plutón): menciónalos únicamente con el signo, la casa y los aspectos de la lista de tránsitos lentos.
 REGLA VITAL 3: Para el bloque 6 (Resumen Psicológico de la Esencia Natal), interpreta SOLAMENTE Sol en {obtener_signo(sol_natal)}, Luna en {obtener_signo(luna_natal)} y Ascendente en {obtener_signo(asc_nat)}. NO inventes un ascendente en Piscis ni en ningún otro signo que no esté en esta lista.
 REGLA VITAL 4: En los bloques de listas (9, 11, 13, 14), escribe exactamente 3 frases profundas y sepáralas con el símbolo "&&&".
 
@@ -359,7 +404,7 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
 |||4. Tónica del Clima Vincular y Social (1 párrafo extenso)
 |||5. Introducción personalizada cálida (1 párrafo de bienvenida al consultante)
 |||6. Resumen Psicológico de la Esencia Natal (Interpretando Sol, Luna y Ascendente reales provistos arriba)
-|||7. Análisis de los Tránsitos Planetarios Lentos (1 párrafo detallado sobre Plutón, Saturno y Urano)
+|||7. Análisis de los Tránsitos Planetarios Lentos (1 párrafo detallado basado EXCLUSIVAMENTE en la lista de tránsitos lentos reales: signo, casa natal, retrogradación, cambios de signo y aspectos; prioriza los que tengan aspectos a puntos natales)
 |||8. Interpretación de Progresiones y Mundo Interior (1 párrafo detallado sobre la Luna Progresada)
 |||9. Tres Consejos de Acción ante Progresiones (Escribe 3 frases separadas por &&&)
 |||10. Interpretación del Clima General de la Revolución Solar (Mínimo 3 párrafos extensos y profundos)
