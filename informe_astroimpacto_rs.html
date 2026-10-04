@@ -51,7 +51,6 @@
     </style>
 </head>
 <body>
-{% set tiene_pan = panorama_trimestral is defined and panorama_trimestral|length > 0 %}{% set off = 0 if tiene_pan else 1 %}
 
     <!-- PORTADA -->
     <div class="a4-page text-center justify-center items-center border-t-8 border-theme-accent" style="display: flex !important; background-color: var(--color-bg-tint);">
@@ -353,7 +352,6 @@
         </footer>
     </div>
 
-    {% if tiene_pan %}
     <!-- PANORAMA TRIMESTRAL -->
     <div class="a4-page page-break-before">
         <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
@@ -374,10 +372,11 @@
                 {% for trimestre in panorama_trimestral %}
                 <div class="avoid-break relative pl-6 border-l-2 border-theme-accent">
                     <div class="absolute w-3 h-3 bg-theme-accent rounded-full -left-[7px] top-2"></div>
-                    <h3 class="font-serif text-xl font-bold text-gris-carbon mb-3">{{ trimestre.titulo }}</h3>
-                    <div class="texto-ia text-sm">
+                    <h3 class="font-serif text-xl font-bold text-gris-carbon mb-1">{{ trimestre.titulo }}</h3>
+                    {% if trimestre.periodo %}<p class="font-sans text-xs text-gray-500 uppercase tracking-wide mb-3">{{ trimestre.periodo }}</p>{% endif %}
+                    {% if trimestre.texto %}<div class="texto-ia text-sm">
                         {{ trimestre.texto | safe }}
-                    </div>
+                    </div>{% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -386,7 +385,6 @@
             <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">09</span>
         </footer>
     </div>
-    {% endif %}
 
     <!-- PLAN DE ACCIÓN -->
     <div class="a4-page page-break-before">
@@ -434,7 +432,7 @@
             {% endif %}
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">{{ '%02d' % (10 - off) }}</span>
+            <span>© 2025 AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">10</span>
         </footer>
     </div>
 
@@ -469,7 +467,7 @@
         </div>
 
         <footer class="border-t border-theme-accent pt-4 text-xs font-sans text-gray-400">
-            <span>© 2025 AstroImpacto. Todos los derechos reservados.</span><span class="font-bold text-theme-accent text-sm">{{ '%02d' % (11 - off) }}</span>
+            <span>© 2025 AstroImpacto. Todos los derechos reservados.</span><span class="font-bold text-theme-accent text-sm">11</span>
         </footer>
     </div>
 

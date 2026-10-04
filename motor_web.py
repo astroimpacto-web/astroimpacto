@@ -332,6 +332,23 @@ def transitos_lentos_rs(jd_rs, planetas_nat, asc_nat, mc_nat, cusps_nat=None, or
     return lineas, datos
 
 
+def _trimestres_rs(y, m, d):
+    """4 trimestres del año solar con su período real y texto vacío (para escribir a mano)."""
+    nombres = ("Primer", "Segundo", "Tercer", "Cuarto")
+    meses = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
+    y, m, d = int(y), int(m), int(d)
+    def sumar(mes_abs):
+        return (y + (mes_abs - 1) // 12, (mes_abs - 1) % 12 + 1)
+    out = []
+    for i, n in enumerate(nombres):
+        ya, ma = sumar(m + 3 * i)
+        yb, mb = sumar(m + 3 * (i + 1))
+        ini = f"{d:02d} {meses[ma - 1]} {ya}"
+        fin = f"{d:02d} {meses[mb - 1]} {yb}" if i < 3 else f"{d:02d} {meses[mb - 1]} {yb} (próxima RS)"
+        out.append({"titulo": f"{n} Trimestre", "periodo": f"{ini} – {fin}", "texto": ""})
+    return out
+
+
 def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, lugar_rs=None, anio_rs=None):
     """anio_rs=None -> PRÓXIMA revolución solar; anio_rs='vigente' -> la en curso (última cumplida); o un año concreto."""
     try:
@@ -462,9 +479,9 @@ ORDEN DE LOS 15 BLOQUES REQUERIDOS:
             "plan_accion_objetivos": procesar_lista(partes[13]),
             "situacion_emocional": partes[14],
             # -----------------------------------------------------------
-            # Estos bloques traían textos fijos que no guardaban relación con la interpretación de cada consultante:
-            # se dejan vacíos y la plantilla los omite. Solo se muestra lo que redacta la IA con los datos reales.
-            "panorama_trimestral": [],
+            # Estructura que se conserva siempre y que la astróloga completa a mano en el editor.
+            # No lleva texto genérico: solo el título del trimestre y su período real (calculado desde la RS).
+            "panorama_trimestral": _trimestres_rs(y_rs, m_rs, d_rs),
             "oportunidades_profesionales": [],
             "como_enfrentar_profesional": [],
             "oportunidades_relaciones": [],

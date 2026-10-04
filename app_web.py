@@ -615,12 +615,24 @@ elif modo_app == "⚙️ Taller de Informes":
                 d_actual['situacion_emocional'] = st.text_area("Análisis Profundo de la Vida Afectiva y Familiar", d_actual.get('situacion_emocional',''), height=180)
                 st.markdown("**Cronograma Anual de Proyección Trimestral:**")
                 
-                if 'panorama_trimestral' in d_actual:
-                    for i, trim in enumerate(d_actual['panorama_trimestral']):
-                        titulo_trim = trim.get('titulo', f'Trimestre {i+1}')
-                        texto_trim = trim.get('texto', '')
-                        trim['texto'] = st.text_area(f"📍 {titulo_trim}", texto_trim, key=f"rs_t_{i}", height=120)
-                
+                st.caption("Los 4 trimestres siempre salen en el informe (con su período). Escribe aquí lo que quieras en cada uno; si lo dejas vacío, solo se imprime el título y el período.")
+                gid_rs = st.session_state.get('gen_id', 0)
+                if not d_actual.get('panorama_trimestral'):
+                    d_actual['panorama_trimestral'] = [{"titulo": f"{n} Trimestre", "periodo": "", "texto": ""} for n in ("Primer", "Segundo", "Tercer", "Cuarto")]
+                for i, trim in enumerate(d_actual['panorama_trimestral']):
+                    titulo_trim = trim.get('titulo', f'Trimestre {i+1}')
+                    periodo_trim = f" ({trim['periodo']})" if trim.get('periodo') else ""
+                    trim['texto'] = st.text_area(f"📍 {titulo_trim}{periodo_trim}", trim.get('texto', ''), key=f"rs_t_{i}_{gid_rs}", height=120)
+
+                st.markdown("**Bloques opcionales (solo se imprimen si escribes algo; uno por línea):**")
+                for _clave, _etq in (("oportunidades_profesionales", "Posibles oportunidades de crecimiento profesional"),
+                                     ("como_enfrentar_profesional", "Cómo enfrentar el año en términos profesionales"),
+                                     ("oportunidades_relaciones", "Oportunidades en relaciones"),
+                                     ("plan_accion_preguntas", "Preguntas para tu reflexión")):
+                    _prev = "\n".join(d_actual.get(_clave, []) or [])
+                    _ed = st.text_area(_etq, _prev, key=f"rs_{_clave}_{st.session_state.get('gen_id', 0)}", height=100)
+                    d_actual[_clave] = [x.strip() for x in _ed.split("\n") if x.strip()]
+
                 texto_plan = "\n".join(d_actual.get('plan_accion_objetivos', []))
                 plan_editado = st.text_area("Plan de Acción y Objetivos Finales (Uno por línea)", texto_plan)
                 
