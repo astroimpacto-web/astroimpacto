@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import base64
 import re
+from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 import motor_web
 from geopy.geocoders import ArcGIS
@@ -427,9 +428,19 @@ elif modo_app == "⚙️ Taller de Informes":
 
             lat_rs = None
             lon_rs = None
+            anio_rs_sel = None
             lug_final = ""
             
             if es_revolucion_final == True: 
+                st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px; margin-bottom:0;'>📅 REVOLUCIÓN A CALCULAR</p>", unsafe_allow_html=True)
+                try:
+                    _anio_nac = motor_web.limpiar_fecha(cli_obj.get("Fecha")).year
+                except Exception:
+                    _anio_nac = datetime.now().year - 1
+                _opciones_rs = ["Próxima (automática)", "Vigente (en curso)"] + [str(y) for y in range(datetime.now().year + 1, _anio_nac - 1, -1)]
+                eleccion_rs = st.sidebar.selectbox("Revolución a calcular", _opciones_rs, key=f"rs_anio_{idx_p}", label_visibility="collapsed")
+                st.sidebar.caption("Próxima: la que viene. Vigente: la última cumplida (la que rige hoy). También puedes elegir un año concreto.")
+                anio_rs_sel = None if eleccion_rs.startswith("Próxima") else ("vigente" if eleccion_rs.startswith("Vigente") else int(eleccion_rs))
                 st.sidebar.markdown("<hr style='margin-top: 1rem; margin-bottom: 1rem;'/>", unsafe_allow_html=True)
                 st.sidebar.markdown("<p style='font-size:0.75rem; color:#B48E92; font-weight:700; letter-spacing:1px; margin-bottom:0;'>📍 RELOCALIZACIÓN RS</p>", unsafe_allow_html=True)
                 st.sidebar.caption("Busca la ciudad donde el consultante pasará su retorno solar.")
@@ -519,7 +530,7 @@ elif modo_app == "⚙️ Taller de Informes":
                         
                         elif "Revolucion" in sel_p:
                             st.session_state.tipo_reporte_actual = "REVOLUCION"
-                            datos_resultantes, plantilla_resultante = motor_web.procesar_rs_con_ia(payload_motor, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final)
+                            datos_resultantes, plantilla_resultante = motor_web.procesar_rs_con_ia(payload_motor, None, id_sel, lat_rs=lat_rs, lon_rs=lon_rs, lugar_rs=lug_final, anio_rs=anio_rs_sel)
                         
                         else:
                             st.session_state.tipo_reporte_actual = "NATAL"

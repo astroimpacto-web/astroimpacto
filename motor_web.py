@@ -279,24 +279,30 @@ def _jd_retorno_solar(sol_natal, anio, mes, dia):
 
 def resolver_retorno_solar(sol_natal, fecha_nac, anio_rs=None, ahora=None):
     """Devuelve (anio, jd_rs).
-    - Si se indica anio_rs: calcula la RS de ese año.
-    - Si no (automático): elige la PRÓXIMA RS, es decir, la del año en curso si
-      todavía no ocurre; si ya ocurrió, la del año siguiente."""
-    if anio_rs is not None:
+    - anio_rs numérico: calcula la RS de ese año.
+    - anio_rs='vigente': la RS en curso, es decir la última ya cumplida (si el cumpleaños de este año
+      ya pasó es la de este año; si no, la del año anterior).
+    - anio_rs=None (automático): la PRÓXIMA RS (la de este año si todavía no ocurre; si ya ocurrió, la siguiente)."""
+    if anio_rs is not None and not (isinstance(anio_rs, str) and anio_rs.strip().lower().startswith(("vig", "prox", "próx", "auto"))):
         anio = int(anio_rs)
         return anio, _jd_retorno_solar(sol_natal, anio, fecha_nac.month, fecha_nac.day)
+    vigente = isinstance(anio_rs, str) and anio_rs.strip().lower().startswith("vig")
     ahora = ahora or datetime.now(timezone.utc)
     jd_ahora = swe.julday(ahora.year, ahora.month, ahora.day,
                           ahora.hour + ahora.minute / 60.0, swe.GREG_CAL)
     anio = ahora.year
     jd_rs = _jd_retorno_solar(sol_natal, anio, fecha_nac.month, fecha_nac.day)
-    if jd_rs < jd_ahora:
+    if vigente:
+        if jd_rs > jd_ahora and anio - 1 >= fecha_nac.year:
+            anio -= 1
+            jd_rs = _jd_retorno_solar(sol_natal, anio, fecha_nac.month, fecha_nac.day)
+    elif jd_rs < jd_ahora:
         anio += 1
         jd_rs = _jd_retorno_solar(sol_natal, anio, fecha_nac.month, fecha_nac.day)
     return anio, jd_rs
 
 def procesar_rs_con_ia(cliente, tipo_obj, id_cli, lat_rs=None, lon_rs=None, lugar_rs=None, anio_rs=None):
-    """anio_rs=None -> calcula automáticamente la PRÓXIMA revolución solar."""
+    """anio_rs=None -> PRÓXIMA revolución solar; anio_rs='vigente' -> la en curso (última cumplida); o un año concreto."""
     try:
         planetas_nat, asc_nat, mc_nat, fecha_nac, hora_nac, lat_nat, lon_nat = calcular_posiciones_base(cliente)
         nombre = cliente.get('Nombres', 'Consultante')
