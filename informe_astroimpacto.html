@@ -48,37 +48,42 @@
             flex-direction: column;
         }
         
-        /* --- CONFIGURACIÓN PERFECTA PARA PDF --- */
+        /* --- CONFIGURACIÓN PARA PDF / IMPRESIÓN --- */
+        /* Los márgenes los pone la hoja (@page) y no cada bloque: así, cuando una sección ocupa más de
+           una página, la continuación también queda con sus márgenes y nada se desplaza. */
         @page {
             size: A4;
-            margin: 0;
+            margin: 18mm 20mm;
         }
-        
+
         @media print {
-            body { 
-                background: none; 
-                padding: 0; 
+            html, body {
+                background: none !important;
+                margin: 0;
+                padding: 0;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
             .no-print { display: none; }
-            .a4-page { 
-                margin: 0 !important; 
-                padding: 20mm !important;
-                box-shadow: none !important; 
+            .a4-page {
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                width: auto !important;
+                min-height: 0 !important;
+                height: auto !important;
+                display: block !important; /* Evita que Flexbox parta el texto por la mitad */
+                break-after: page;
                 page-break-after: always;
-                width: 210mm;
-                min-height: auto !important; /* Libera la altura para evitar cortes */
-                height: auto !important; 
-                display: block !important; /* CORRECCIÓN CRÍTICA: Evita que Flexbox parta el texto por la mitad */
             }
-            .page-break-before {
-                page-break-before: always;
-            }
-            /* Evita que un párrafo o título se parta en dos páginas */
-            .texto-ia, h2, h3, ul, .element-bar-bg {
-                page-break-inside: avoid;
-            }
+            .a4-page:last-of-type { break-after: auto; page-break-after: auto; }
+            .page-break-before { break-before: auto; page-break-before: auto; } /* ya hay salto al final de cada página */
+            /* Portada y despedida: ocupan una hoja completa (alto útil = 297mm - 2 x 18mm) */
+            .a4-page.pagina-completa { min-height: 255mm !important; display: flex !important; }
+            /* Evita cortes feos sin forzar que bloques largos salten de hoja */
+            h2, h3 { break-after: avoid; page-break-after: avoid; }
+            .texto-ia p, .item-bloque, ul, li, .element-bar-bg { break-inside: avoid; page-break-inside: avoid; }
+            footer { break-before: avoid; }
         }
 
         .divider-line {
@@ -141,7 +146,7 @@
 {% set mf = mostrar_foda if mostrar_foda is defined else true %}{% set off = 0 if mf else 1 %}
 
     <!-- PÁGINA 1: PORTADA -->
-    <div class="a4-page text-center border-t-8 border-theme-accent justify-between" style="display: flex !important;">
+    <div class="a4-page pagina-completa text-center border-t-8 border-theme-accent justify-between" style="display: flex !important;">
         <div class="mt-16">
             <div class="w-56 h-56 mx-auto mb-8 text-theme-accent">
                 <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -488,7 +493,7 @@
             </div>
 
             {% for gigante in gigantes_del_cielo %}
-            <div class="mb-6">
+            <div class="mb-6 item-bloque">
                 <h3 class="font-sans font-bold text-lg border-b border-gray-200 pb-1 mb-2 text-gris-carbon">
                      {{ gigante.nombre }} en {{ gigante.signo }} <span class="text-sm font-normal text-gray-500">(Casa {{ gigante.casa }})</span>
                 </h3>
@@ -524,7 +529,7 @@
             </div>
 
             {% for aspecto in aspectos_interpretados %}
-            <div class="mb-6">
+            <div class="mb-6 item-bloque">
                 <h3 class="font-sans font-bold text-lg border-b border-gray-200 pb-1 mb-2 text-gris-carbon">
                      {{ aspecto.titulo }} <span class="text-sm font-normal text-gray-500">({{ aspecto.subtitulo }})</span>
                 </h3>
@@ -584,7 +589,7 @@
     </div>
 
     <!-- PÁGINA 11: DESPEDIDA -->
-    <div class="a4-page flex flex-col justify-between text-center bg-gris-suave transition-colors duration-300 page-break-before" style="display: flex !important;">
+    <div class="a4-page pagina-completa flex flex-col justify-between text-center bg-gris-suave transition-colors duration-300 page-break-before" style="display: flex !important;">
         <div class="mt-20">
             <h2 class="font-serif text-4xl text-theme-accent mb-6">{{ t.despedida_titulo }}</h2>
             <div class="w-16 h-1 bg-theme-accent mx-auto mb-10"></div>
