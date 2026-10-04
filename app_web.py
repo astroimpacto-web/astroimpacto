@@ -718,14 +718,17 @@ elif modo_app == "⚙️ Taller de Informes":
                 st.caption("Esta síntesis se redactó al final, leyendo las secciones anteriores. Si editas alguna sección, revisa que el relato siga coincidiendo.")
                 d_actual['claves_carta'] = _lista_editable("Las 5 claves de la carta", d_actual.get('claves_carta', []), "natal_claves")
                 d_actual['interpretacion_personalidad_global'] = st.text_area("Relato Final de Integración de Personalidad", d_actual.get('interpretacion_personalidad_global', ''), height=420, key=_k("natal_global"))
-                st.markdown("**Matriz de Potencial (FODA):**")
-                col_f1, col_f2 = st.columns(2)
-                with col_f1:
-                    d_actual['foda']['fortalezas'] = _lista_editable(t_fijos.get('foda_f', 'Fortalezas'), d_actual['foda'].get('fortalezas', []), "natal_foda_f")
-                    d_actual['foda']['oportunidades'] = _lista_editable(t_fijos.get('foda_o', 'Oportunidades'), d_actual['foda'].get('oportunidades', []), "natal_foda_o")
-                with col_f2:
-                    d_actual['foda']['debilidades'] = _lista_editable(t_fijos.get('foda_d', 'Debilidades'), d_actual['foda'].get('debilidades', []), "natal_foda_d")
-                    d_actual['foda']['amenazas'] = _lista_editable(t_fijos.get('foda_a', 'Amenazas'), d_actual['foda'].get('amenazas', []), "natal_foda_a")
+                if d_actual.get('mostrar_foda', True):
+                    st.markdown("**Matriz de Potencial (FODA):**")
+                    col_f1, col_f2 = st.columns(2)
+                    with col_f1:
+                        d_actual['foda']['fortalezas'] = _lista_editable(t_fijos.get('foda_f', 'Fortalezas'), d_actual['foda'].get('fortalezas', []), "natal_foda_f")
+                        d_actual['foda']['oportunidades'] = _lista_editable(t_fijos.get('foda_o', 'Oportunidades'), d_actual['foda'].get('oportunidades', []), "natal_foda_o")
+                    with col_f2:
+                        d_actual['foda']['debilidades'] = _lista_editable(t_fijos.get('foda_d', 'Debilidades'), d_actual['foda'].get('debilidades', []), "natal_foda_d")
+                        d_actual['foda']['amenazas'] = _lista_editable(t_fijos.get('foda_a', 'Amenazas'), d_actual['foda'].get('amenazas', []), "natal_foda_a")
+                else:
+                    st.caption('En el tratamiento "En memoria" el informe no incluye la página FODA.')
 
             with st.expander("7. Datos de contacto (última página)", expanded=False):
                 d_actual['datos_contacto']['ig'] = st.text_input("Instagram", d_actual['datos_contacto'].get('ig', ''), key=_k("natal_ig"))

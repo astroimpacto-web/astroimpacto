@@ -1087,7 +1087,8 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli, biblioteca=None):
                         "Concuerda en masculino (el consultante)." if es_hombre else
                         "Usa formulaciones neutras que no dependan del género.")
         voz = REGLAS_VOZ[modo].replace("{nombre}", nombre)
-        foda_sig = REGLAS_FODA["memoria" if modo == "memoria" else "otro"]
+        con_foda = modo != "memoria"   # en memoria no se incluye la página FODA
+        foda_sig = REGLAS_FODA["otro"]
 
         carta = calcular_carta_natal(cliente)
         pl = carta["planetas"]
@@ -1171,10 +1172,10 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli, biblioteca=None):
                     "lo componen (2 párrafos de 80-100 palabras),\n"
                     '"interpretacion_balance_elementos": elemento dominante y el más débil, nombrando qué planetas los '
                     "componen, con las consecuencias en la forma de vivir (2 párrafos de 80-100 palabras),\n"
-                    '"foda": objeto con "fortalezas", "debilidades", "oportunidades" y "amenazas", cada una con 4 frases '
-                    "concretas de 12-25 palabras basadas en elementos reales de la carta. Significado en esta voz: "
-                    + foda_sig + ".")
-        claves_2 = ["interpretacion_modos", "interpretacion_balance_elementos", "foda"]
+                    + ('"foda": objeto con "fortalezas", "debilidades", "oportunidades" y "amenazas", cada una con 4 frases '
+                       "concretas de 12-25 palabras basadas en elementos reales de la carta. Significado en esta voz: "
+                       + foda_sig + "." if con_foda else "(sin más claves)"))
+        claves_2 = ["interpretacion_modos", "interpretacion_balance_elementos"] + (["foda"] if con_foda else [])
 
         fuentes_3 = bloque_fuentes(biblioteca, GIGANTES, pl, asc_signo, aspectos)
         prompt_3 = (datos_txt + analisis_txt + "ASPECTOS A INTERPRETAR:\n" + "\n".join(lineas_asp) + "\n"
@@ -1243,8 +1244,9 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli, biblioteca=None):
                          "subtitulo": f"orbe {_grados_min(x['orbe'])}",
                          "texto": textos_asp.get(i + 1, "")} for i, x in enumerate(aspectos)]
 
-        foda_ia = a["foda"] if isinstance(a["foda"], dict) else {}
-        foda = {k: _lista_texto(foda_ia.get(k)) for k in ("fortalezas", "debilidades", "oportunidades", "amenazas")}
+        foda_ia = a.get("foda") if isinstance(a.get("foda"), dict) else {}
+        foda = {k: (_lista_texto(foda_ia.get(k)) if con_foda else [])
+                for k in ("fortalezas", "debilidades", "oportunidades", "amenazas")}
 
         # ---- 4.ª consulta (en secuencia): la síntesis lee lo que ya se escribió ----
         def _cuerpo(t):
@@ -1257,7 +1259,7 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli, biblioteca=None):
                      f"[ELEMENTOS] {_cuerpo(a['interpretacion_balance_elementos'])}\n"
                      + "".join(f"[{g['nombre'].upper()}] {g['texto']}\n" for g in gigantes)
                      + "".join(f"[ASPECTO {x['titulo']}] {x['texto']}\n" for x in aspectos_int)
-                     + "[FODA] " + " | ".join(f"{k}: " + "; ".join(v) for k, v in foda.items()) + "\n")
+                     + ("[FODA] " + " | ".join(f"{k}: " + "; ".join(v) for k, v in foda.items()) + "\n" if con_foda else ""))
         prompt_4 = (datos_txt + analisis_txt + secciones + "\n" + reglas + "\n\n"
                     "Devuelve un JSON con estas claves exactas:\n"
                     '"frase_destacada_global": frase inspiradora corta (máx. 18 palabras, sin comillas) que resuma el conjunto de la carta,\n'
@@ -1319,6 +1321,7 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli, biblioteca=None):
             "anio_informe": ahora.year,
             "tema_color": "rosa",
             "trato": modo,
+            "mostrar_foda": con_foda,
             "solicitante": solicitante,
             "t": t,
             "auditoria_tecnica": auditoria,

@@ -138,6 +138,7 @@
     </style>
 </head>
 <body>
+{% set mf = mostrar_foda if mostrar_foda is defined else true %}{% set off = 0 if mf else 1 %}
 
     <!-- PÁGINA 1: PORTADA -->
     <div class="a4-page text-center border-t-8 border-theme-accent justify-between" style="display: flex !important;">
@@ -409,6 +410,7 @@
         </footer>
     </div>
     
+    {% if mf %}
     <!-- PÁGINA 7: FODA -->
     <div class="a4-page page-break-before">
          <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
@@ -465,6 +467,8 @@
         </footer>
     </div>
 
+    {% endif %}
+
     <!-- PÁGINA 8: GIGANTES DEL CIELO -->
     <div class="a4-page page-break-before">
          <header class="flex justify-between items-end border-b border-theme-accent pb-3 mb-10">
@@ -496,7 +500,7 @@
             
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">08</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">{{ '%02d' % (8 - off) }}</span>
         </footer>
     </div>
 
@@ -538,7 +542,7 @@
             
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">09</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">{{ '%02d' % (9 - off) }}</span>
         </footer>
     </div>
     
@@ -575,7 +579,7 @@
             </div>
         </main>
         <footer class="mt-auto border-t border-theme-accent pt-3 flex justify-between items-center text-xs font-sans text-gray-400">
-            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">10</span>
+            <span>© {{ anio_informe }} AstroImpacto.</span><span class="font-bold text-theme-accent text-sm">{{ '%02d' % (10 - off) }}</span>
         </footer>
     </div>
 
@@ -610,7 +614,7 @@
         </div>
 
         <footer class="border-t border-theme-accent pt-4 text-xs font-sans text-gray-400">
-            <span>© {{ anio_informe }} AstroImpacto. Todos los derechos reservados.</span><span class="font-bold text-theme-accent text-sm">11</span>
+            <span>© {{ anio_informe }} AstroImpacto. Todos los derechos reservados.</span><span class="font-bold text-theme-accent text-sm">{{ '%02d' % (11 - off) }}</span>
         </footer>
     </div>
 
