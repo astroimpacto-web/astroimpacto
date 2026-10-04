@@ -432,6 +432,8 @@ import base64
 import copy
 import html as _html
 import math
+import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 
 SIGNOS = ["Aries", "Tauro", "Géminis", "Cáncer", "Leo", "Virgo", "Libra", "Escorpio",
           "Sagitario", "Capricornio", "Acuario", "Piscis"]
@@ -457,7 +459,8 @@ ASPECTOS_NATAL = [("Conjunción", 0, 8), ("Sextil", 60, 5), ("Cuadratura", 90, 7
                   ("Trígono", 120, 7), ("Oposición", 180, 8)]
 
 # Completa con tus datos reales (aparecen en la última página del informe).
-DATOS_CONTACTO = {"ig": "@tu_instagram", "mail": "tu_correo@ejemplo.com"}
+# Si los dejas vacíos, el editor te avisa y puedes escribirlos ahí en cada informe.
+DATOS_CONTACTO = {"ig": "", "mail": ""}
 TEXTO_CONECTADOS = "Sigamos conectados"
 
 ROL_NATAL = ("Eres Patricia Ramirez, astróloga profesional de Astroimpacto. Tono empático, profundo, "
@@ -532,7 +535,7 @@ def calcular_balance(puntos):
     return a_porcentaje(elem), a_porcentaje(modos)
 
 
-def calcular_aspectos_natal(puntos, maximo=8):
+def calcular_aspectos_natal(puntos, maximo=6):  # maximo=None -> todos
     """Aspectos mayores entre planetas, Ascendente y Medio Cielo, ordenados por cercanía relativa.
     Se omiten los aspectos entre dos planetas transpersonales (son generacionales) y AC-MC."""
     nombres = list(puntos)
@@ -675,19 +678,34 @@ def preparar_para_render(datos, tipo="NATAL"):
     return d
 
 
-def _llamar_json(prompt, claves, max_tokens, intentos=2):
-    """Pide a la IA un JSON y valida que estén todas las claves. Lanza ValueError si no se logra."""
+def _norm(txt):
+    """Minúsculas y sin acentos, para comparar nombres ('Júpiter' == 'jupiter')."""
+    t = unicodedata.normalize("NFD", str(txt))
+    return "".join(c for c in t if unicodedata.category(c) != "Mn").lower().strip()
+
+
+def _llamar_json(prompt, claves, max_tokens, intentos=2, validador=None):
+    """Pide a la IA un JSON y valida que estén todas las claves (y, si se entrega, que pase el validador).
+    Reintenta una vez. Lanza ValueError si no se logra: nunca deja texto de error dentro del informe."""
     ultimo = None
-    for _ in range(intentos):
+    for n in range(intentos):
         try:
             datos = consultor_web.consultar_gpt_json(ROL_NATAL, prompt, max_tokens)
-            faltan = [k for k in claves if k not in datos or datos[k] in (None, "", [], {})]
-            if not faltan:
-                return datos
-            ultimo = f"la IA no entregó: {', '.join(faltan)}"
+            if not isinstance(datos, dict):
+                ultimo = "la IA no devolvió un objeto JSON"
+            else:
+                faltan = [k for k in claves if k not in datos or datos[k] in (None, "", [], {})]
+                if faltan:
+                    ultimo = f"la IA no entregó: {', '.join(faltan)}"
+                else:
+                    problema = validador(datos) if validador else None
+                    if not problema:
+                        return datos
+                    ultimo = problema
         except Exception as e:
             ultimo = str(e)
-        time.sleep(2)
+        if n < intentos - 1:
+            time.sleep(2)
     raise ValueError(f"Falló la generación con IA ({ultimo}).")
 
 
@@ -699,23 +717,386 @@ def _lista_texto(valor, n=4):
     return [x for x in limpio if len(x) > 3][:n]
 
 
-def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
-    """Carta natal completa: cálculo real (casas topocéntricas) + textos IA con salida JSON."""
+# ------------------------------------------------------------------------------
+# TRATAMIENTO (voz del informe)
+# ------------------------------------------------------------------------------
+OPCIONES_TRATO = ["Cercano (tú)", "Formal (usted)", "Impersonal (tercera persona)", "En memoria (tercera persona)"]
+
+_COMUN_TRATO = {
+    "global_titulo": "Interpretación Global de la Personalidad",
+    "claves_titulo": "Las 5 Claves de la Carta",
+    "solicitado_por": "Solicitado por:",
+    "foda_titulo": "Análisis de Potencial: FODA Personal",
+    "foda_f": "Fortalezas (Potencias a Usar)",
+    "foda_d": "Debilidades (Patrones a Observar)",
+    "foda_o": "Oportunidades (Rutas de Crecimiento)",
+    "foda_a": "Amenazas (Riesgos Internos)",
+    "subtitulo": "Mapa de Identidad & Potencial",
+    "conectados": "Sigamos conectados",
+}
+
+_GIG_INI = "Los planetas sociales (Júpiter y Saturno) y transpersonales (Urano, Neptuno y Plutón) marcan el tono de "
+_ASP_INI = "Esta sección proporciona una visión sintética de las interacciones más importantes (aspectos) entre los planetas en "
+
+TEXTOS_TRATO = {
+    "cercano": {
+        "preparado_para": "Preparado para:",
+        "triada": "Tu Tríada Principal (Síntesis)", "mandala": "Tu Mandala Astrológico",
+        "sol": "El Sol: Tu Esencia", "luna": "La Luna: Tu Refugio", "asc": "Ascendente: Tu Ruta",
+        "foda_intro": "Este análisis FODA (Fortalezas, Oportunidades, Debilidades, Amenazas) se basa en la síntesis de tus posiciones planetarias clave (Sol, Luna y Ascendente) para ofrecerte una hoja de ruta práctica.",
+        "gigantes_intro": _GIG_INI + "tu generación y señalan las áreas de gran transformación a largo plazo en tu vida.",
+        "aspectos_intro": _ASP_INI + "tu carta natal. Estos aspectos definen tus talentos y desafíos internos.",
+        "despedida_titulo": "Gracias por confiar en tu proceso",
+        "despedida_texto": "Espero que este informe te haya dado la claridad y el impacto que buscabas. Recuerda que los astros inclinan, pero no obligan. Te dejo mis datos para que sigamos en contacto.",
+    },
+    "formal": {
+        "preparado_para": "Preparado para:",
+        "triada": "Su Tríada Principal (Síntesis)", "mandala": "Su Mandala Astrológico",
+        "sol": "El Sol: Su Esencia", "luna": "La Luna: Su Refugio", "asc": "Ascendente: Su Ruta",
+        "foda_intro": "Este análisis FODA (Fortalezas, Oportunidades, Debilidades, Amenazas) se basa en la síntesis de sus posiciones planetarias clave (Sol, Luna y Ascendente) para ofrecerle una hoja de ruta práctica.",
+        "gigantes_intro": _GIG_INI + "su generación y señalan las áreas de gran transformación a largo plazo en su vida.",
+        "aspectos_intro": _ASP_INI + "su carta natal. Estos aspectos definen sus talentos y desafíos internos.",
+        "despedida_titulo": "Gracias por confiar en este proceso",
+        "despedida_texto": "Espero que este informe le haya dado la claridad y el impacto que buscaba. Recuerde que los astros inclinan, pero no obligan. Le dejo mis datos para que sigamos en contacto.",
+    },
+    "impersonal": {
+        "preparado_para": "Informe elaborado para:",
+        "triada": "Tríada Principal (Síntesis)", "mandala": "Mandala Astrológico",
+        "sol": "El Sol: La Esencia", "luna": "La Luna: El Refugio", "asc": "Ascendente: La Ruta",
+        "foda_intro": "Este análisis FODA (Fortalezas, Oportunidades, Debilidades, Amenazas) se basa en la síntesis de las posiciones planetarias clave de la carta (Sol, Luna y Ascendente) para ofrecer una hoja de ruta práctica.",
+        "gigantes_intro": _GIG_INI + "una generación y señalan las áreas de gran transformación a largo plazo en la vida de la persona.",
+        "aspectos_intro": _ASP_INI + "la carta natal. Estos aspectos definen talentos y desafíos internos.",
+        "despedida_titulo": "Gracias por confiar en este proceso",
+        "despedida_texto": "Este informe busca aportar claridad e impacto. Los astros inclinan, pero no obligan. A continuación se indican los datos de contacto para mantener la comunicación.",
+    },
+    "memoria": {
+        "preparado_para": "En memoria de:",
+        "subtitulo": "Lectura simbólica de una carta natal",
+        "triada": "Tríada Principal (Síntesis)", "mandala": "Mandala Astrológico",
+        "sol": "El Sol: La Esencia", "luna": "La Luna: El Refugio", "asc": "Ascendente: La Ruta",
+        "foda_titulo": "Fortalezas y Aprendizajes de Vida",
+        "foda_intro": "Esta lectura se basa en la síntesis de las posiciones planetarias clave de la carta (Sol, Luna y Ascendente) y describe las cualidades, los desafíos, los aprendizajes y el legado de {nombre}.",
+        "foda_f": "Fortalezas (Cualidades)", "foda_d": "Desafíos (Rasgos de su carácter)",
+        "foda_o": "Aprendizajes de Vida", "foda_a": "Legado (Huella en los demás)",
+        "gigantes_intro": _GIG_INI + "la generación de {nombre} y señalan los grandes temas de transformación de su recorrido vital.",
+        "aspectos_intro": _ASP_INI + "la carta natal de {nombre}. Estos aspectos describen sus talentos y desafíos internos.",
+        "despedida_titulo": "Gracias por permitir esta lectura",
+        "despedida_texto": "Este informe es una lectura simbólica de la carta natal de {nombre}, ofrecida con respeto y como una manera de comprender y honrar su forma de ser. Los astros inclinan, pero no obligan. A continuación se indican los medios de contacto.",
+        "conectados": "Medios de contacto",
+    },
+}
+
+REGLAS_VOZ = {
+    "cercano": "VOZ: háblale directamente de tú (tú, tu, te), con tono cálido y cercano.",
+    "formal": ("VOZ: trata de usted (usted, su, le), con tono respetuoso y profesional. "
+               "No uses nunca tú, tu, tus, te ni ti."),
+    "impersonal": ("VOZ: tercera persona neutra. Refiérete a {nombre} por su nombre o como «la persona consultante» y usa «su». "
+                   "Sin segunda persona (ni tú ni usted) y sin dirigirte a quien lee. Tono sobrio y descriptivo."),
+    "memoria": ("VOZ: este es un informe EN MEMORIA de {nombre}, solicitado por un familiar. Tercera persona (por su nombre, «su»), "
+                "tono sereno, respetuoso y compasivo. Usa tiempo PRESENTE DESCRIPTIVO («la carta muestra…», «su Sol en Tauro indica…»). "
+                "PROHIBIDO: segunda persona (tú o usted), dirigirte a quien lee, consejos o instrucciones, predicciones, "
+                "y cualquier mención o afirmación sobre salud, enfermedad, muerte, duelo o causas de fallecimiento; no menciones el "
+                "fallecimiento. Describe temperamento, vínculos, talentos, valores y forma de enfrentar la vida."),
+}
+
+# Qué significan las cuatro listas del FODA en cada voz (las claves internas no cambian).
+REGLAS_FODA = {
+    "memoria": ('"fortalezas" = cualidades, "debilidades" = desafíos o rasgos exigentes de su carácter, '
+                '"oportunidades" = aprendizajes de vida que la carta refleja, "amenazas" = LEGADO: valores y huella que su manera de ser '
+                "aporta a quienes la rodean (formúlalo en positivo y sin predicciones)"),
+    "otro": ('"fortalezas" = potencias a usar, "debilidades" = patrones a observar, '
+             '"oportunidades" = rutas de crecimiento, "amenazas" = riesgos internos'),
+}
+
+_PRON_2A = re.compile(r"\b(tú|tu|tus|te|ti|contigo|usted|ustedes)\b", re.I)
+_PRON_TU = re.compile(r"\b(tú|tu|tus|te|ti|contigo)\b", re.I)
+_TEMAS_SENSIBLES = re.compile(r"\b(muerte|muri[óo]|fallec\w*|enfermedad\w*|enferm[óo]|diagn[óo]stic\w*|suicid\w*|duelo)\b", re.I)
+
+
+def normalizar_trato(valor):
+    """Convierte lo que venga (etiqueta del selector, texto de la hoja, vacío) en 'cercano'|'formal'|'impersonal'|'memoria'."""
+    v = _norm(valor)
+    if "memoria" in v or "fallec" in v or "difunt" in v:
+        return "memoria"
+    if "imperson" in v or "tercera" in v or "neutro" in v:
+        return "impersonal"
+    if "formal" in v or "usted" in v:
+        return "formal"
+    return "cercano"
+
+
+def textos_fijos(trato, nombre="", es_mujer=False, es_hombre=False):
+    """Textos fijos de la plantilla según la voz (todos editables luego en la app)."""
+    modo = normalizar_trato(trato)
+    t = dict(_COMUN_TRATO)
+    t.update(TEXTOS_TRATO[modo])
+    if modo == "memoria":
+        t["bienvenida"] = f"En memoria de {nombre}".strip()
+    elif modo == "impersonal":
+        t["bienvenida"] = "Presentación de la carta natal"
+    elif modo == "formal":
+        t["bienvenida"] = ("Bienvenida a su carta natal" if es_mujer else "Bienvenido a su carta natal" if es_hombre
+                           else "Le damos la bienvenida a su carta natal")
+    else:
+        t["bienvenida"] = ("Bienvenida a tu carta natal" if es_mujer else "Bienvenido a tu carta natal" if es_hombre
+                           else "Te damos la bienvenida a tu carta natal")
+    return {k: v.replace("{nombre}", nombre) for k, v in t.items()}
+
+
+def _textos_de(obj):
+    """Todos los textos (str) contenidos en un dict/lista anidado."""
+    if isinstance(obj, str):
+        yield obj
+    elif isinstance(obj, dict):
+        for v in obj.values():
+            yield from _textos_de(v)
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            yield from _textos_de(v)
+
+
+def revisar_voz(obj, trato):
+    """Palabras que no corresponden a la voz elegida (segunda persona en tratos no cercanos; temas sensibles en 'memoria').
+    Devuelve una lista de hallazgos únicos (vacía = todo bien)."""
+    modo = normalizar_trato(trato)
+    hallazgos = []
+    if modo == "cercano":
+        return hallazgos
+    patron = _PRON_TU if modo == "formal" else _PRON_2A
+    for texto in _textos_de(obj):
+        hallazgos += [m.group(0).lower() for m in patron.finditer(texto)]
+        if modo == "memoria":
+            hallazgos += [m.group(0).lower() for m in _TEMAS_SENSIBLES.finditer(texto)]
+    return sorted(set(hallazgos))
+
+
+# ------------------------------------------------------------------------------
+# ANÁLISIS ENRIQUECIDO DE LA CARTA (datos extra para interpretar con más profundidad)
+# ------------------------------------------------------------------------------
+REGENTES = {"Aries": "Marte", "Tauro": "Venus", "Géminis": "Mercurio", "Cáncer": "Luna", "Leo": "Sol",
+            "Virgo": "Mercurio", "Libra": "Venus", "Escorpio": "Plutón", "Sagitario": "Júpiter",
+            "Capricornio": "Saturno", "Acuario": "Urano", "Piscis": "Neptuno"}
+REGENTES_CLASICOS = {"Escorpio": "Marte", "Acuario": "Saturno", "Piscis": "Júpiter"}
+
+DIGNIDADES = {
+    "Sol":      {"domicilio": ["Leo"], "exaltación": ["Aries"], "exilio": ["Acuario"], "caída": ["Libra"]},
+    "Luna":     {"domicilio": ["Cáncer"], "exaltación": ["Tauro"], "exilio": ["Capricornio"], "caída": ["Escorpio"]},
+    "Mercurio": {"domicilio": ["Géminis", "Virgo"], "exaltación": ["Virgo"], "exilio": ["Sagitario", "Piscis"], "caída": ["Piscis"]},
+    "Venus":    {"domicilio": ["Tauro", "Libra"], "exaltación": ["Piscis"], "exilio": ["Escorpio", "Aries"], "caída": ["Virgo"]},
+    "Marte":    {"domicilio": ["Aries", "Escorpio"], "exaltación": ["Capricornio"], "exilio": ["Libra", "Tauro"], "caída": ["Cáncer"]},
+    "Júpiter":  {"domicilio": ["Sagitario", "Piscis"], "exaltación": ["Cáncer"], "exilio": ["Géminis", "Virgo"], "caída": ["Capricornio"]},
+    "Saturno":  {"domicilio": ["Capricornio", "Acuario"], "exaltación": ["Libra"], "exilio": ["Cáncer", "Leo"], "caída": ["Aries"]},
+}
+FASES_LUNARES = ["Luna Nueva", "Creciente", "Cuarto Creciente", "Gibosa Creciente",
+                 "Luna Llena", "Gibosa Menguante", "Cuarto Menguante", "Balsámica"]
+_ELEMENTOS_NOMBRE = ["Fuego", "Tierra", "Aire", "Agua"]
+_MODOS_NOMBRE = ["Cardinal", "Fijo", "Mutable"]
+
+
+def dignidad(planeta, signo):
+    """'domicilio' | 'exaltación' | 'exilio' | 'caída' | '' (solo los 7 planetas visibles)."""
+    for tipo, signos in DIGNIDADES.get(planeta, {}).items():
+        if signo in signos:
+            return tipo
+    return ""
+
+
+def fase_lunar(lon_sol, lon_luna):
+    """Fase de la Luna natal (8 fases de 45°) según la elongación Luna-Sol."""
+    elong = (lon_luna - lon_sol) % 360
+    return FASES_LUNARES[int(((elong + 22.5) % 360) // 45)]
+
+
+def analisis_carta(carta, aspectos_todos):
+    """Datos que enriquecen la interpretación: regentes, dignidades, fase lunar, estelios, planetas angulares,
+    hemisferios, distribución por elemento/modo y aspectos por punto (Sol, Luna, Ascendente)."""
+    pl = carta["planetas"]
+    asc, mc = carta["asc"], carta["mc"]
+    asc_signo = obtener_signo(asc)
+
+    def pos(n):
+        d = pl[n]
+        return f"{n} en {d['signo']}, casa {d['casa']}" + (" (retrógrado)" if d["retro"] else "")
+
+    regentes = {}
+    for punto, signo in (("Sol", pl["Sol"]["signo"]), ("Luna", pl["Luna"]["signo"]), ("Ascendente", asc_signo)):
+        r = REGENTES[signo]
+        txt = f"regente del signo ({signo}): {pos(r)}"
+        rc = REGENTES_CLASICOS.get(signo)
+        if rc:
+            txt += f"; regente clásico {pos(rc)}"
+        regentes[punto] = txt
+
+    dign = {}
+    for n in DIGNIDADES:
+        d = dignidad(n, pl[n]["signo"])
+        if d:
+            dign[n] = d
+
+    por_signo, por_casa = {}, {}
+    for n in pl:
+        por_signo.setdefault(pl[n]["signo"], []).append(n)
+        por_casa.setdefault(pl[n]["casa"], []).append(n)
+    estelios = [f"{', '.join(v)} en {k}" for k, v in por_signo.items() if len(v) >= 3]
+    estelios += [f"{', '.join(v)} en casa {k}" for k, v in sorted(por_casa.items()) if len(v) >= 3]
+
+    angulos = {"Ascendente": asc, "Descendente": (asc + 180) % 360, "Medio Cielo": mc, "Fondo del Cielo (IC)": (mc + 180) % 360}
+    angulares = []
+    for n, d in pl.items():
+        for nombre_a, lon_a in angulos.items():
+            dist = diferencia_angular(d["lon"], lon_a)
+            if dist <= 7:
+                angulares.append(f"{n} junto a {nombre_a} (a {dist:.1f}°)")
+
+    sup = sum(1 for n in pl if pl[n]["casa"] >= 7)
+    ori = sum(1 for n in pl if pl[n]["casa"] in (10, 11, 12, 1, 2, 3))
+    hemis = [f"sobre el horizonte (casas 7-12): {sup} planetas; bajo el horizonte (casas 1-6): {10 - sup}",
+             f"lado oriental (casas 10-3): {ori}; lado occidental (casas 4-9): {10 - ori}"]
+    if sup >= 7:
+        hemis.append("predominio claro del hemisferio superior (orientación a lo externo y social)")
+    elif sup <= 3:
+        hemis.append("predominio claro del hemisferio inferior (orientación a lo íntimo y subjetivo)")
+    if ori >= 7:
+        hemis.append("predominio del lado oriental (iniciativa propia)")
+    elif ori <= 3:
+        hemis.append("predominio del lado occidental (vida en relación con otros)")
+
+    dist_e = {e: [] for e in _ELEMENTOS_NOMBRE}
+    dist_m = {m: [] for m in _MODOS_NOMBRE}
+    puntos_dist = [(n, d["lon"]) for n, d in pl.items()] + [("Ascendente", asc)]
+    for n, lon in puntos_dist:
+        idx = int(lon / 30) % 12
+        dist_e[_ELEMENTOS_NOMBRE[idx % 4]].append(n)
+        dist_m[_MODOS_NOMBRE[idx % 3]].append(n)
+
+    por_punto = {}
+    for punto in ("Sol", "Luna", "Ascendente"):
+        lista = []
+        for x in aspectos_todos:
+            if punto in (x["a"], x["b"]):
+                otro = x["b"] if x["a"] == punto else x["a"]
+                lista.append(f"{x['aspecto']} con {otro} (orbe {x['orbe']:.1f}°)")
+        por_punto[punto] = lista[:4]
+
+    return {"fase_lunar": fase_lunar(pl["Sol"]["lon"], pl["Luna"]["lon"]), "regentes": regentes,
+            "dignidades": dign, "estelios": estelios, "angulares": angulares, "hemisferios": hemis,
+            "dist_elementos": dist_e, "dist_modos": dist_m, "por_punto": por_punto}
+
+
+def _texto_analisis(an):
+    """Bloque de texto con el análisis enriquecido, listo para los prompts."""
+    L = [f"FASE LUNAR NATAL: {an['fase_lunar']}"]
+    for p, t in an["regentes"].items():
+        L.append(f"REGENTE de {p}: {t}")
+    if an["dignidades"]:
+        L.append("DIGNIDADES: " + "; ".join(f"{n} en {d}" for n, d in an["dignidades"].items()))
+    L.append("ESTELIOS: " + ("; ".join(an["estelios"]) if an["estelios"] else "ninguno"))
+    L.append("PLANETAS ANGULARES: " + ("; ".join(an["angulares"]) if an["angulares"] else "ninguno"))
+    L.append("HEMISFERIOS: " + " | ".join(an["hemisferios"]))
+    L.append("PLANETAS POR ELEMENTO: " + "; ".join(f"{e}: {', '.join(v) or '—'}" for e, v in an["dist_elementos"].items()))
+    L.append("PLANETAS POR MODO: " + "; ".join(f"{m}: {', '.join(v) or '—'}" for m, v in an["dist_modos"].items()))
+    return "\n".join(L) + "\n"
+
+
+# ------------------------------------------------------------------------------
+# BIBLIOTECA PROPIA (interpretaciones escritas por la astróloga, en hojas opcionales)
+# ------------------------------------------------------------------------------
+def _campo(fila, *nombres):
+    """Valor de una columna buscando por nombre sin importar mayúsculas ni acentos."""
+    buscadas = {_norm(n) for n in nombres}
+    for k, v in (fila or {}).items():
+        if _norm(k) in buscadas:
+            return v
+    return ""
+
+
+def construir_biblioteca(planeta_signo=None, planeta_casa=None, aspectos=None):
+    """Arma el diccionario de consulta a partir de las filas (lista de dicts) de las hojas opcionales
+    Planeta_Signo (Planeta, Signo, Texto), Planeta_Casa (Planeta, Casa, Texto) y
+    Aspectos (Planeta_A, Aspecto, Planeta_B, Texto). Las filas sin texto se ignoran."""
+    bib = {"planeta_signo": {}, "planeta_casa": {}, "aspectos": {}}
+    for f in planeta_signo or []:
+        p, s, t = _campo(f, "Planeta"), _campo(f, "Signo"), str(_campo(f, "Texto")).strip()
+        if p and s and t:
+            bib["planeta_signo"][(_norm(p), _norm(s))] = t
+    for f in planeta_casa or []:
+        p, c, t = _campo(f, "Planeta"), _campo(f, "Casa"), str(_campo(f, "Texto")).strip()
+        try:
+            c = str(int(float(str(c).strip())))
+        except ValueError:
+            continue
+        if p and t:
+            bib["planeta_casa"][(_norm(p), c)] = t
+    for f in aspectos or []:
+        a, asp, b, t = (_campo(f, "Planeta_A"), _campo(f, "Aspecto"), _campo(f, "Planeta_B"),
+                        str(_campo(f, "Texto")).strip())
+        if a and asp and b and t:
+            bib["aspectos"][(tuple(sorted((_norm(a), _norm(b)))), _norm(asp))] = t
+    return bib
+
+
+def _recortar(texto, n):
+    if len(texto) <= n:
+        return texto
+    corte = texto[:n]
+    punto = max(corte.rfind(". "), corte.rfind(".\n"))
+    return (corte[:punto + 1] if punto > n * 0.5 else corte.rstrip() + "…")
+
+
+def bloque_fuentes(biblioteca, puntos, pl, asc_signo, aspectos=(), limite=1200):
+    """Texto 'FUENTE PROPIA' con las entradas de la biblioteca que coinciden con la carta ('' si no hay)."""
+    if not biblioteca:
+        return ""
+    L = []
+    for n in puntos:
+        signo, casa = (asc_signo, None) if n == "Ascendente" else (pl[n]["signo"], pl[n]["casa"])
+        t = biblioteca["planeta_signo"].get((_norm(n), _norm(signo)))
+        if t:
+            L.append(f"- {n} en {signo}: {_recortar(t, limite)}")
+        if casa:
+            t = biblioteca["planeta_casa"].get((_norm(n), str(casa)))
+            if t:
+                L.append(f"- {n} en casa {casa}: {_recortar(t, limite)}")
+    for x in aspectos:
+        t = biblioteca["aspectos"].get((tuple(sorted((_norm(x["a"]), _norm(x["b"])))), _norm(x["aspecto"])))
+        if t:
+            L.append(f"- {x['a']} {x['aspecto']} {x['b']}: {_recortar(t, limite)}")
+    if not L:
+        return ""
+    return ("FUENTE PROPIA (interpretaciones escritas por la astróloga). Úsalas como base de contenido y de criterio: "
+            "reformúlalas en la VOZ indicada (aunque estén escritas en otra), combínalas entre sí, no las copies literalmente "
+            "y no contradigas los datos de la carta:\n" + "\n".join(L) + "\n")
+
+
+# ------------------------------------------------------------------------------
+# CARTA NATAL COMPLETA
+# ------------------------------------------------------------------------------
+def procesar_natal_con_ia(cliente, tipo_obj, id_cli, biblioteca=None):
+    """Carta natal completa: cálculo real (casas topocéntricas) + textos IA con salida JSON.
+    Voz según cliente['Trato']; contexto opcional en cliente['Contexto']; solicitante en cliente['Solicitante'].
+    Flujo: 3 consultas en paralelo (secciones) y una cuarta, en secuencia, que sintetiza lo ya escrito."""
     try:
-        nombre = cliente.get('Nombres', 'Consultante')
+        nombre = str(cliente.get('Nombres', 'Consultante') or 'Consultante')
         genero = str(cliente.get('Genero') or cliente.get('genero') or '').strip().lower()
         es_mujer = genero.startswith('f')
         es_hombre = genero.startswith('m')
-        concordancia = ("Escribe en femenino (la consultante)." if es_mujer else
-                        "Escribe en masculino (el consultante)." if es_hombre else
+        modo = normalizar_trato(cliente.get('Trato'))
+        solicitante = str(cliente.get('Solicitante') or '').strip()
+        contexto = str(cliente.get('Contexto') or '').strip()[:600]
+        concordancia = ("Concuerda en femenino (la consultante)." if es_mujer else
+                        "Concuerda en masculino (el consultante)." if es_hombre else
                         "Usa formulaciones neutras que no dependan del género.")
+        voz = REGLAS_VOZ[modo].replace("{nombre}", nombre)
+        foda_sig = REGLAS_FODA["memoria" if modo == "memoria" else "otro"]
 
         carta = calcular_carta_natal(cliente)
         pl = carta["planetas"]
         puntos = {n: d["lon"] for n, d in pl.items()}
         puntos["Ascendente"], puntos["Medio Cielo"] = carta["asc"], carta["mc"]
         elementos, modos = calcular_balance(puntos)
-        aspectos = calcular_aspectos_natal(puntos)
+        aspectos_todos = calcular_aspectos_natal(puntos, maximo=None)
+        aspectos = aspectos_todos[:6]
+        an = analisis_carta(carta, aspectos_todos)
 
         asc_signo, mc_signo = obtener_signo(carta["asc"]), obtener_signo(carta["mc"])
         lineas = [f"- {n} en {d['signo']}, casa {d['casa']}" + (" (retrógrado)" if d["retro"] else "")
@@ -725,54 +1106,138 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
         lineas_asp = [f"{i + 1}. {a['a']} {a['aspecto']} {a['b']} (orbe {a['orbe']:.1f}°)"
                       for i, a in enumerate(aspectos)] or ["(sin aspectos mayores cerrados)"]
         datos_txt = (f"CONSULTANTE: {nombre}. {concordancia}\n"
-                     f"POSICIONES (casas topocéntricas):\n" + "\n".join(lineas) + "\n"
+                     + (f"CONTEXTO DEL ENCARGO (solo para ajustar el enfoque; no lo repitas literalmente): {contexto}\n" if contexto else "")
+                     + f"POSICIONES (casas topocéntricas):\n" + "\n".join(lineas) + "\n"
                      f"BALANCE ELEMENTOS (%): fuego {elementos['fuego']}, tierra {elementos['tierra']}, "
                      f"aire {elementos['aire']}, agua {elementos['agua']}\n"
                      f"BALANCE MODOS (%): cardinal {modos['Cardinal']}, fijo {modos['Fijo']}, mutable {modos['Mutable']}\n")
-        reglas = ("REGLAS: usa SOLO los datos entregados, no inventes posiciones ni aspectos. "
+        analisis_txt = _texto_analisis(an)
+
+        def ficha(punto):
+            if punto == "Ascendente":
+                base = f"ASCENDENTE en {asc_signo}"
+            else:
+                d = pl[punto]
+                base = f"{punto.upper()} en {d['signo']}, casa {d['casa']}" + \
+                       (f", en {an['dignidades'][punto]}" if punto in an["dignidades"] else "")
+            asp = "; ".join(an["por_punto"][punto]) or "sin aspectos mayores cerrados"
+            extra = f" | Fase lunar: {an['fase_lunar']}" if punto == "Luna" else ""
+            return f"- {base} | {an['regentes'][punto]} | Aspectos: {asp}{extra}"
+
+        fichas_txt = "FICHAS CLAVE:\n" + "\n".join(ficha(p) for p in ("Sol", "Luna", "Ascendente")) + "\n"
+
+        reglas = (f"{voz}\n"
+                  "REGLAS: usa SOLO los datos entregados; no inventes posiciones, aspectos ni dignidades. "
                   "Texto plano (sin HTML ni markdown); separa los párrafos con una línea en blanco. "
-                  "No menciones porcentajes ni números de puntos. Responde únicamente con un objeto JSON.")
+                  "No menciones porcentajes ni números de puntos. Evita frases genéricas que valdrían para cualquier carta: "
+                  "cada párrafo debe apoyarse en un elemento concreto de la carta. Responde únicamente con un objeto JSON.")
 
-        prompt_a = (datos_txt + "\n" + reglas + "\n\n"
+        fuentes_1 = bloque_fuentes(biblioteca, ["Sol", "Luna", "Ascendente"], pl, asc_signo,
+                                   [x for x in aspectos_todos if {"Sol", "Luna", "Ascendente"} & {x["a"], x["b"]}][:6])
+        prompt_1 = (datos_txt + analisis_txt + fichas_txt + fuentes_1 + "\n" + reglas + "\n\n"
                     "Devuelve un JSON con estas claves exactas:\n"
-                    '"texto_introductorio": bienvenida cálida personalizada (1 párrafo),\n'
-                    '"frase_destacada_sol", "frase_destacada_luna", "frase_destacada_asc", "frase_destacada_global": '
-                    "frases inspiradoras cortas (máx. 18 palabras, sin comillas) sobre Sol, Luna, Ascendente y el conjunto,\n"
-                    '"interpretacion_sol_signo": Sol en su signo y casa, identidad y brillo (2 párrafos),\n'
-                    '"interpretacion_luna_signo": Luna en su signo y casa, mundo emocional y refugio (2 párrafos),\n'
+                    '"texto_introductorio": presentación del informe adecuada a la VOZ (1 párrafo de 70-90 palabras),\n'
+                    '"frase_destacada_sol", "frase_destacada_luna", "frase_destacada_asc": '
+                    "frases inspiradoras cortas (máx. 18 palabras, sin comillas) sobre el Sol, la Luna y el Ascendente,\n"
+                    '"triada_rasgos": objeto {"sol": ..., "luna": ..., "asc": ...} con el rasgo clave de cada punto '
+                    "en máximo 8 palabras (sustantivos o frase breve, sin punto final),\n"
+                    '"interpretacion_sol_signo": 3 párrafos de 100-130 palabras: (1) el signo y su sentido; (2) la casa, el regente y la '
+                    "dignidad si la hay; (3) los aspectos al Sol y sus matices,\n"
+                    '"interpretacion_luna_signo": 3 párrafos de 100-130 palabras: (1) signo y fase lunar; (2) casa y vínculos; '
+                    "(3) regente y aspectos de la Luna,\n"
                     '"luna_mecanismo", "luna_talento", "luna_necesidad": una frase corta cada una '
-                    "(mecanismo de defensa, talento emocional, necesidad básica de la Luna),\n"
-                    '"interpretacion_asc_signo": Ascendente en su signo, aprendizaje y cómo lo ven los demás (2 párrafos),\n'
-                    '"interpretacion_modos": ritmo vital según el modo dominante (1-2 párrafos),\n'
-                    '"interpretacion_balance_elementos": elemento dominante y el más débil, como consejo fluido (1-2 párrafos),\n'
-                    '"interpretacion_personalidad_global": síntesis integrando Sol, Luna, Ascendente, elementos y '
-                    "aspectos principales (3 párrafos),\n"
-                    '"foda": objeto con "fortalezas", "debilidades", "oportunidades" y "amenazas", '
-                    "cada una con 4 frases cortas y concretas basadas en la carta.")
-        claves_a = ["texto_introductorio", "frase_destacada_sol", "frase_destacada_luna", "frase_destacada_asc",
-                    "frase_destacada_global", "interpretacion_sol_signo", "interpretacion_luna_signo",
-                    "luna_mecanismo", "luna_talento", "luna_necesidad", "interpretacion_asc_signo",
-                    "interpretacion_modos", "interpretacion_balance_elementos",
-                    "interpretacion_personalidad_global", "foda"]
-        a = _llamar_json(prompt_a, claves_a, 5000)
+                    "(mecanismo de defensa, talento emocional y necesidad básica de la Luna),\n"
+                    '"interpretacion_asc_signo": 3 párrafos de 100-130 palabras: (1) estilo y forma de presentarse ante el mundo; '
+                    "(2) el regente del Ascendente y su posición; (3) planetas angulares y aspectos del Ascendente.")
+        claves_1 = ["texto_introductorio", "frase_destacada_sol", "frase_destacada_luna", "frase_destacada_asc",
+                    "triada_rasgos", "interpretacion_sol_signo", "interpretacion_luna_signo", "luna_mecanismo",
+                    "luna_talento", "luna_necesidad", "interpretacion_asc_signo"]
 
-        prompt_b = (datos_txt + "ASPECTOS A INTERPRETAR:\n" + "\n".join(lineas_asp) + "\n\n" + reglas + "\n\n"
+        def _validar_1(d):
+            tr = d.get("triada_rasgos")
+            if not isinstance(tr, dict):
+                return "'triada_rasgos' no es un objeto"
+            for k in ("sol", "luna", "asc"):
+                v = str(tr.get(k, "")).strip()
+                if not v:
+                    return f"falta el rasgo de la tríada: {k}"
+                if len(v.split()) > 12:
+                    return f"el rasgo de la tríada '{k}' es demasiado largo"
+            return None
+
+        prompt_2 = (datos_txt + analisis_txt + "ASPECTOS PRINCIPALES:\n" + "\n".join(lineas_asp) + "\n\n" + reglas + "\n\n"
+                    "Devuelve un JSON con estas claves exactas:\n"
+                    '"interpretacion_modos": ritmo vital según el modo dominante y el más débil, nombrando qué planetas '
+                    "lo componen (2 párrafos de 80-100 palabras),\n"
+                    '"interpretacion_balance_elementos": elemento dominante y el más débil, nombrando qué planetas los '
+                    "componen, con las consecuencias en la forma de vivir (2 párrafos de 80-100 palabras),\n"
+                    '"foda": objeto con "fortalezas", "debilidades", "oportunidades" y "amenazas", cada una con 4 frases '
+                    "concretas de 12-25 palabras basadas en elementos reales de la carta. Significado en esta voz: "
+                    + foda_sig + ".")
+        claves_2 = ["interpretacion_modos", "interpretacion_balance_elementos", "foda"]
+
+        fuentes_3 = bloque_fuentes(biblioteca, GIGANTES, pl, asc_signo, aspectos)
+        prompt_3 = (datos_txt + analisis_txt + "ASPECTOS A INTERPRETAR:\n" + "\n".join(lineas_asp) + "\n"
+                    + fuentes_3 + "\n" + reglas + "\n\n"
                     "Devuelve un JSON con:\n"
                     '"gigantes": objeto con una clave por cada planeta (Júpiter, Saturno, Urano, Neptuno, Plutón) '
-                    "y como valor su interpretación en su signo y casa (1 párrafo cada una; para Urano, Neptuno y "
-                    "Plutón explica también el matiz generacional),\n"
-                    '"aspectos": lista de objetos {"id": número, "texto": interpretación breve (1 párrafo) del reto '
-                    "o ventaja del aspecto} con un objeto por cada aspecto listado.")
-        b = _llamar_json(prompt_b, ["gigantes"] + (["aspectos"] if aspectos else []), 5000)
+                    "y como valor su interpretación en su signo y casa (90-130 palabras en 1-2 párrafos; indica su dignidad o "
+                    "retrogradación si corresponde; para Urano, Neptuno y Plutón explica también el matiz generacional),\n"
+                    '"aspectos": lista de objetos {"id": número, "texto": interpretación (80-120 palabras) que explique cómo '
+                    "se combinan ambos planetas, su talento y su reto} con un objeto por cada aspecto listado, usando el mismo número.")
+        ids_esperados = set(range(1, len(aspectos) + 1))
 
-        gig_ia = b.get("gigantes", {})
+        def _validar_gigantes_y_aspectos(d):
+            g = d.get("gigantes")
+            if not isinstance(g, dict):
+                return "'gigantes' no es un objeto"
+            g_norm = {_norm(k): v for k, v in g.items()}
+            sin_texto = [n for n in GIGANTES if not str(g_norm.get(_norm(n), "")).strip()]
+            if sin_texto:
+                return f"faltan textos de: {', '.join(sin_texto)}"
+            if ids_esperados:
+                a_lista = d.get("aspectos")
+                if not isinstance(a_lista, list):
+                    return "'aspectos' no es una lista"
+                ids = set()
+                for it in a_lista:
+                    try:
+                        if str(it.get("texto", "")).strip():
+                            ids.add(int(it.get("id")))
+                    except (TypeError, ValueError, AttributeError):
+                        pass
+                if not ids_esperados <= ids:
+                    return f"faltan textos de aspectos: {sorted(ids_esperados - ids)}"
+            return None
+
+        def con_voz(validador=None):
+            """Suma al validador la revisión de la voz (sin segunda persona / sin temas sensibles en 'memoria')."""
+            def v(d):
+                prob = validador(d) if validador else None
+                if prob:
+                    return prob
+                hall = revisar_voz(d, modo)
+                return f"la IA usó formas que no corresponden a la voz elegida: {', '.join(hall)}" if hall else None
+            return v
+
+        intentos = 3 if modo != "cercano" else 2
+        # Las tres consultas de secciones se hacen a la vez: el tiempo total es el de la más lenta.
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            f1 = pool.submit(_llamar_json, prompt_1, claves_1, 6000, intentos, con_voz(_validar_1))
+            f2 = pool.submit(_llamar_json, prompt_2, claves_2, 4500, intentos, con_voz())
+            f3 = pool.submit(_llamar_json, prompt_3, ["gigantes"] + (["aspectos"] if aspectos else []), 6000,
+                             intentos, con_voz(_validar_gigantes_y_aspectos))
+            a = {**f1.result(), **f2.result()}
+            b = f3.result()
+
+        gig_norm = {_norm(k): v for k, v in b.get("gigantes", {}).items()}
         gigantes = [{"nombre": n, "signo": pl[n]["signo"], "casa": pl[n]["casa"],
-                     "texto": str(gig_ia.get(n, "")).strip()} for n in GIGANTES]
+                     "texto": str(gig_norm.get(_norm(n), "")).strip()} for n in GIGANTES]
         textos_asp = {}
         for item in b.get("aspectos", []) if isinstance(b.get("aspectos"), list) else []:
             try:
                 textos_asp[int(item.get("id"))] = str(item.get("texto", "")).strip()
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, AttributeError):
                 continue
         aspectos_int = [{"titulo": f"{x['a']} {x['aspecto']} {x['b']}",
                          "subtitulo": f"orbe {_grados_min(x['orbe'])}",
@@ -780,6 +1245,42 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
 
         foda_ia = a["foda"] if isinstance(a["foda"], dict) else {}
         foda = {k: _lista_texto(foda_ia.get(k)) for k in ("fortalezas", "debilidades", "oportunidades", "amenazas")}
+
+        # ---- 4.ª consulta (en secuencia): la síntesis lee lo que ya se escribió ----
+        def _cuerpo(t):
+            return str(t).strip()
+        secciones = ("TEXTOS YA REDACTADOS DEL INFORME (sintetiza ESTO; no introduzcas información nueva):\n"
+                     f"[SOL] {_cuerpo(a['interpretacion_sol_signo'])}\n"
+                     f"[LUNA] {_cuerpo(a['interpretacion_luna_signo'])}\n"
+                     f"[ASCENDENTE] {_cuerpo(a['interpretacion_asc_signo'])}\n"
+                     f"[MODOS] {_cuerpo(a['interpretacion_modos'])}\n"
+                     f"[ELEMENTOS] {_cuerpo(a['interpretacion_balance_elementos'])}\n"
+                     + "".join(f"[{g['nombre'].upper()}] {g['texto']}\n" for g in gigantes)
+                     + "".join(f"[ASPECTO {x['titulo']}] {x['texto']}\n" for x in aspectos_int)
+                     + "[FODA] " + " | ".join(f"{k}: " + "; ".join(v) for k, v in foda.items()) + "\n")
+        prompt_4 = (datos_txt + analisis_txt + secciones + "\n" + reglas + "\n\n"
+                    "Devuelve un JSON con estas claves exactas:\n"
+                    '"frase_destacada_global": frase inspiradora corta (máx. 18 palabras, sin comillas) que resuma el conjunto de la carta,\n'
+                    '"claves_carta": lista de EXACTAMENTE 5 frases (máx. 25 palabras cada una), las ideas más importantes de todo el '
+                    "informe, cada una anclada en un elemento concreto de la carta (por ejemplo «Sol en Tauro: …»),\n"
+                    '"interpretacion_personalidad_global": relato final de integración en EXACTAMENTE 5 párrafos de 90-120 palabras: '
+                    "(1) núcleo de identidad (Sol y Ascendente); (2) mundo emocional y vínculos (Luna y Venus); "
+                    "(3) forma de pensar y de actuar (Mercurio, Marte, modos y elementos); "
+                    "(4) tensiones y aprendizajes (aspectos más exigentes, Saturno); (5) visión de conjunto. "
+                    "Cada párrafo debe nombrar al menos dos elementos concretos de la carta que ya aparecen en los textos redactados "
+                    "y retomar ideas de ellos; nada genérico.")
+
+        def _validar_sintesis(d):
+            if len(_lista_texto(d.get("claves_carta"), 5)) != 5:
+                return "'claves_carta' debe traer exactamente 5 frases"
+            parrafos = [p for p in re.split(r"\n\s*\n", str(d.get("interpretacion_personalidad_global", ""))) if p.strip()]
+            if len(parrafos) < 4:
+                return "el relato final debe tener 5 párrafos"
+            return None
+
+        s = _llamar_json(prompt_4, ["frase_destacada_global", "claves_carta", "interpretacion_personalidad_global"],
+                         3500, intentos, con_voz(_validar_sintesis))
+        claves_carta = _lista_texto(s["claves_carta"], 5)
 
         # Fecha y lugar tal como los espera la plantilla: "dd-mm-aaaa HH:MM - Lugar"
         try:
@@ -793,6 +1294,7 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
         lugar = ", ".join(x for x in (ciudad, pais.split('-')[-1] if pais else "") if x) or "Lugar no indicado"
 
         ahora = datetime.now()
+        tr = a["triada_rasgos"]
         auditoria = (
             "--- PANEL TÉCNICO NATAL ---\n"
             f"NACIMIENTO UT: {carta['fecha_ut']:%d-%m-%Y} {hora_decimal_a_hms(carta['hora_ut'])} | "
@@ -804,20 +1306,29 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
             "CÚSPIDES: " + " | ".join(f"{i + 1}: {deg_to_dms_sign(c)}" for i, c in enumerate(carta["cuspides"])) + "\n"
             f"ELEMENTOS %: {elementos}\nMODOS %: {modos}\n"
             "ASPECTOS: " + "; ".join(f"{x['a']} {x['aspecto']} {x['b']} ({x['orbe']:.1f}°)" for x in aspectos) + "\n"
+            + analisis_txt
+            + f"VOZ: {modo}" + (f" | Biblioteca propia: {'sí' if biblioteca else 'no'}") + "\n"
             "---------------------------")
 
+        t = textos_fijos(modo, nombre, es_mujer, es_hombre)
         return {
             "nombre_cliente": nombre,
             "titulo_informe": "Carta Natal",
-            "titulo_bienvenida": "Bienvenida a tu carta natal" if es_mujer else
-                                 "Bienvenido a tu carta natal" if es_hombre else "Te damos la bienvenida a tu carta natal",
+            "titulo_bienvenida": t["bienvenida"],
             "fecha_entrega": f"{MESES_ES[ahora.month - 1]} {ahora.year}",
+            "anio_informe": ahora.year,
             "tema_color": "rosa",
+            "trato": modo,
+            "solicitante": solicitante,
+            "t": t,
             "auditoria_tecnica": auditoria,
             "datos_nacimiento": f"{f_loc} {h_loc} - {lugar}",
             "ruta_imagen_carta": svg_a_data_uri(dibujar_mandala_svg(carta, aspectos)),
-            "aspectos_clave": [f"Sol en {pl['Sol']['signo']}", f"Luna en {pl['Luna']['signo']}",
-                               f"Ascendente en {asc_signo}"],
+            "aspectos_clave": [
+                {"glifo": "☉", "titulo": f"Sol en {pl['Sol']['signo']}", "rasgo": str(tr["sol"]).strip()},
+                {"glifo": "☽", "titulo": f"Luna en {pl['Luna']['signo']}", "rasgo": str(tr["luna"]).strip()},
+                {"glifo": "AC", "titulo": f"Ascendente en {asc_signo}", "rasgo": str(tr["asc"]).strip()},
+            ],
             "texto_introductorio": a["texto_introductorio"],
             "interpretacion_modos": a["interpretacion_modos"],
             "elementos": elementos,
@@ -825,7 +1336,7 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
             "frase_destacada_sol": a["frase_destacada_sol"],
             "frase_destacada_luna": a["frase_destacada_luna"],
             "frase_destacada_asc": a["frase_destacada_asc"],
-            "frase_destacada_global": a["frase_destacada_global"],
+            "frase_destacada_global": str(s["frase_destacada_global"]).strip(),
             "sol": {"signo": pl["Sol"]["signo"], "casa": pl["Sol"]["casa"]},
             "luna": {"signo": pl["Luna"]["signo"], "casa": pl["Luna"]["casa"],
                      "mecanismo": a["luna_mecanismo"], "talento": a["luna_talento"], "necesidad": a["luna_necesidad"]},
@@ -836,9 +1347,10 @@ def procesar_natal_con_ia(cliente, tipo_obj, id_cli):
             "foda": foda,
             "gigantes_del_cielo": gigantes,
             "aspectos_interpretados": aspectos_int,
-            "interpretacion_personalidad_global": a["interpretacion_personalidad_global"],
+            "claves_carta": claves_carta,
+            "interpretacion_personalidad_global": s["interpretacion_personalidad_global"],
             "datos_contacto": dict(DATOS_CONTACTO),
-            "texto_conectados": TEXTO_CONECTADOS,
+            "texto_conectados": t["conectados"],
         }, "informe_astroimpacto.html"
     except Exception as e:
         return None, f"Error técnico grave en el procesamiento de Natal: {str(e)}\n{traceback.format_exc()}"
@@ -891,7 +1403,7 @@ def procesar_transitos_con_ia(cliente, tipo_obj, id_cli):
         return {
             "nombre_cliente": nombre,
             "titulo_informe": f"Tránsitos {anio_actual}",
-            "fecha_entrega": datetime.now().strftime("%B %Y"),
+            "fecha_entrega": f"{MESES_ES[datetime.now().month - 1]} {datetime.now().year}",
             "auditoria_tecnica": f"Sol {deg_to_dms_sign(p_nat['Sol'])} | Luna {deg_to_dms_sign(p_nat['Luna'])} | Asc {deg_to_dms_sign(asc_nat)}",
             "texto_introductorio": txt_intro,
             "sol": {"signo": obtener_signo(p_nat["Sol"])},
